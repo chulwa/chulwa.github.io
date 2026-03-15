@@ -1,0 +1,895 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>无感FOC深度学习文档 | 嵌入式笔记</title><meta name="author" content="隼"><meta name="copyright" content="隼"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="ESP32无感滑模FOC深度学习文档 基于灯哥DengFOC V4例程4：无感滑模完整控制例程包含滑模观测器、锁相环、SVPWM深度解析   目录 无感FOC基础理论 滑模观测器(SMO)深度解析 锁相环(PLL)深度解析 SVPWM深度解析 代码架构分析 核心模块详解 调参指南 常见问题与调试   1. 无感FOC基础理论1.1 什么是无感FOC？FOC（Field Oriented Contr">
+<meta property="og:type" content="article">
+<meta property="og:title" content="无感FOC深度学习文档">
+<meta property="og:url" content="https://chulwa.github.io/2026/03/15/%E6%97%A0%E6%84%9FFOC%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/index.html">
+<meta property="og:site_name" content="嵌入式笔记">
+<meta property="og:description" content="ESP32无感滑模FOC深度学习文档 基于灯哥DengFOC V4例程4：无感滑模完整控制例程包含滑模观测器、锁相环、SVPWM深度解析   目录 无感FOC基础理论 滑模观测器(SMO)深度解析 锁相环(PLL)深度解析 SVPWM深度解析 代码架构分析 核心模块详解 调参指南 常见问题与调试   1. 无感FOC基础理论1.1 什么是无感FOC？FOC（Field Oriented Contr">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://chulwa.github.io/img/author-avatar.jpg">
+<meta property="article:published_time" content="2026-03-15T13:39:30.000Z">
+<meta property="article:modified_time" content="2026-03-15T15:35:59.408Z">
+<meta property="article:author" content="隼">
+<meta property="article:tag" content="ESP32">
+<meta property="article:tag" content="FOC">
+<meta property="article:tag" content="电机控制">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://chulwa.github.io/img/author-avatar.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "无感FOC深度学习文档",
+  "url": "https://chulwa.github.io/2026/03/15/%E6%97%A0%E6%84%9FFOC%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/",
+  "image": "https://chulwa.github.io/img/author-avatar.jpg",
+  "datePublished": "2026-03-15T13:39:30.000Z",
+  "dateModified": "2026-03-15T15:35:59.408Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "隼",
+      "url": "https://chulwa.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://chulwa.github.io/2026/03/15/%E6%97%A0%E6%84%9FFOC%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/index.html"><link rel="preconnect" href="//unpkg.com"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://unpkg.com/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":false,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://unpkg.com/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '无感FOC深度学习文档',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="/css/forest.css"><meta name="generator" content="Hexo 8.1.1"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/author-avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">19</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">27</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-tree"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/poetry/"><i class="fa-fw fa-solid fa-feather-pointed"></i><span> 文学角落</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-feather-pointed"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">嵌入式笔记</span></a><a class="nav-page-title" href="/"><span class="site-name">无感FOC深度学习文档</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-tree"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/poetry/"><i class="fa-fw fa-solid fa-feather-pointed"></i><span> 文学角落</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-feather-pointed"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无感FOC深度学习文档</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-03-15T13:39:30.000Z" title="发表于 2026-03-15 21:39:30">2026-03-15</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-03-15T15:35:59.408Z" title="更新于 2026-03-15 23:35:59">2026-03-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%B5%8C%E5%85%A5%E5%BC%8F/">嵌入式</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%B5%8C%E5%85%A5%E5%BC%8F/%E7%94%B5%E6%9C%BA%E6%8E%A7%E5%88%B6/">电机控制</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%B5%8C%E5%85%A5%E5%BC%8F/%E7%94%B5%E6%9C%BA%E6%8E%A7%E5%88%B6/FOC/">FOC</a></span></div><div class="meta-secondline"></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="ESP32无感滑模FOC深度学习文档"><a href="#ESP32无感滑模FOC深度学习文档" class="headerlink" title="ESP32无感滑模FOC深度学习文档"></a>ESP32无感滑模FOC深度学习文档</h1><blockquote>
+<p>基于灯哥DengFOC V4例程4：无感滑模完整控制例程<br>包含滑模观测器、锁相环、SVPWM深度解析</p>
+</blockquote>
+<hr>
+<h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
+<li><a href="#1-无感foc基础理论">无感FOC基础理论</a></li>
+<li><a href="#2-滑模观测器smo深度解析">滑模观测器(SMO)深度解析</a></li>
+<li><a href="#3-锁相环pll深度解析">锁相环(PLL)深度解析</a></li>
+<li><a href="#4-svpwm深度解析">SVPWM深度解析</a></li>
+<li><a href="#5-代码架构分析">代码架构分析</a></li>
+<li><a href="#6-核心模块详解">核心模块详解</a></li>
+<li><a href="#7-调参指南">调参指南</a></li>
+<li><a href="#8-常见问题与调试">常见问题与调试</a></li>
+</ol>
+<hr>
+<h2 id="1-无感FOC基础理论"><a href="#1-无感FOC基础理论" class="headerlink" title="1. 无感FOC基础理论"></a>1. 无感FOC基础理论</h2><h3 id="1-1-什么是无感FOC？"><a href="#1-1-什么是无感FOC？" class="headerlink" title="1.1 什么是无感FOC？"></a>1.1 什么是无感FOC？</h3><p>FOC（Field Oriented Control，磁场定向控制）是一种高效的电机控制方法。<strong>无感FOC</strong>是指不使用位置传感器（如编码器、霍尔传感器），而是通过<strong>观测器算法</strong>估算转子位置和速度的控制方式。</p>
+<h3 id="1-2-PMSM电机数学模型"><a href="#1-2-PMSM电机数学模型" class="headerlink" title="1.2 PMSM电机数学模型"></a>1.2 PMSM电机数学模型</h3><p>无感FOC的核心是利用电机的<strong>反电动势</strong>来估算转子位置。</p>
+<h4 id="电压方程（α-β坐标系）"><a href="#电压方程（α-β坐标系）" class="headerlink" title="电压方程（α-β坐标系）"></a>电压方程（α-β坐标系）</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Uα = Rs·Iα + Ls·(dIα/dt) + Eα</span><br><span class="line">Uβ = Rs·Iβ + Ls·(dIβ/dt) + Eβ</span><br></pre></td></tr></table></figure>
+<p>其中：</p>
+<ul>
+<li><code>Uα, Uβ</code>：定子电压</li>
+<li><code>Iα, Iβ</code>：定子电流</li>
+<li><code>Rs</code>：相电阻</li>
+<li><code>Ls</code>：相电感</li>
+<li><code>Eα, Eβ</code>：<strong>反电动势</strong>（关键！）</li>
+</ul>
+<h4 id="反电动势与转子位置的关系"><a href="#反电动势与转子位置的关系" class="headerlink" title="反电动势与转子位置的关系"></a>反电动势与转子位置的关系</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Eα = -Ke·ω·sin(θ)</span><br><span class="line">Eβ = Ke·ω·cos(θ)</span><br></pre></td></tr></table></figure>
+<p><strong>关键结论</strong>：如果我们能准确估算出反电动势，就能计算出转子位置！</p>
+<h3 id="1-3-无感FOC控制框图"><a href="#1-3-无感FOC控制框图" class="headerlink" title="1.3 无感FOC控制框图"></a>1.3 无感FOC控制框图</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                        无感FOC控制框图                           │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br><span class="line"></span><br><span class="line">     目标速度/目标电流</span><br><span class="line">          │</span><br><span class="line">          ↓</span><br><span class="line">    ┌──────────┐</span><br><span class="line">    │  速度环  │ → Id_ref (通常为0), Iq_ref</span><br><span class="line">    │  PID     │</span><br><span class="line">    └──────────┘</span><br><span class="line">          │</span><br><span class="line">          ↓</span><br><span class="line">    ┌──────────┐</span><br><span class="line">    │  电流环  │ → Ud, Uq</span><br><span class="line">    │  PID     │</span><br><span class="line">    └──────────┘</span><br><span class="line">          │</span><br><span class="line">          ↓</span><br><span class="line">    ┌──────────────────────────────────────────┐</span><br><span class="line">    │         Park逆变换 (dq→αβ)               │</span><br><span class="line">    │    Uα = Ud·cos(θ̂) - Uq·sin(θ̂)           │</span><br><span class="line">    │    Uβ = Ud·sin(θ̂) + Uq·cos(θ̂)           │</span><br><span class="line">    └──────────────────────────────────────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓</span><br><span class="line">    ┌──────────────────────────────────────────┐</span><br><span class="line">    │            SVPWM调制                      │</span><br><span class="line">    │       生成三相PWM占空比                   │</span><br><span class="line">    └──────────────────────────────────────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓</span><br><span class="line">    ┌──────────────────────────────────────────┐</span><br><span class="line">    │              电机                         │</span><br><span class="line">    │         产生实际电流 Ia, Ib               │</span><br><span class="line">    └──────────────────────────────────────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓</span><br><span class="line">    ┌──────────────────────────────────────────┐</span><br><span class="line">    │         Clarke变换 (ABC→αβ)              │</span><br><span class="line">    │     Iα = Ia, Iβ = (Ia+2Ib)/√3            │</span><br><span class="line">    └──────────────────────────────────────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓</span><br><span class="line">    ┌──────────────────────────────────────────┐</span><br><span class="line">    │         Park变换 (αβ→dq)                 │</span><br><span class="line">    │   使用估算角度θ̂进行变换                  │</span><br><span class="line">    │   Id = Iα·cos(θ̂) + Iβ·sin(θ̂)            │</span><br><span class="line">    │   Iq = Iβ·cos(θ̂) - Iα·sin(θ̂)            │</span><br><span class="line">    └──────────────────────────────────────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓</span><br><span class="line">    ┌──────────────────────────────────────────┐</span><br><span class="line">    │          滑模观测器 (SMO)                 │</span><br><span class="line">    │     输入: Uα,Uβ, Iα,Iβ                   │</span><br><span class="line">    │     输出: 估算角度θ̂, 估算速度ω̂           │</span><br><span class="line">    └──────────────────────────────────────────┘</span><br><span class="line">                    │</span><br><span class="line">                    └──→ 反馈到Park变换和Park逆变换</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="2-滑模观测器-SMO-深度解析"><a href="#2-滑模观测器-SMO-深度解析" class="headerlink" title="2. 滑模观测器(SMO)深度解析"></a>2. 滑模观测器(SMO)深度解析</h2><h3 id="2-1-滑模控制理论基础"><a href="#2-1-滑模控制理论基础" class="headerlink" title="2.1 滑模控制理论基础"></a>2.1 滑模控制理论基础</h3><h4 id="2-1-1-什么是滑模控制？"><a href="#2-1-1-什么是滑模控制？" class="headerlink" title="2.1.1 什么是滑模控制？"></a>2.1.1 什么是滑模控制？</h4><p>滑模控制（Sliding Mode Control）是一种<strong>非线性控制策略</strong>，其核心思想是：</p>
+<ol>
+<li><strong>设计滑模面</strong>：定义一个切换函数 s(x) = 0</li>
+<li><strong>设计控制律</strong>：使系统状态在有限时间内到达滑模面</li>
+<li><strong>保持滑动</strong>：一旦到达滑模面，控制律使系统状态保持在滑模面上运动</li>
+</ol>
+<h4 id="2-1-2-滑模面的物理意义"><a href="#2-1-2-滑模面的物理意义" class="headerlink" title="2.1.2 滑模面的物理意义"></a>2.1.2 滑模面的物理意义</h4><p>在电机控制中，我们定义滑模面为<strong>电流误差</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sα = Îα - Iα  (α轴电流误差)</span><br><span class="line">sβ = Îβ - Iβ  (β轴电流误差)</span><br></pre></td></tr></table></figure>
+<p><strong>滑模面的物理意义</strong>：</p>
+<ul>
+<li>当 s = 0 时，估算电流等于实际电流</li>
+<li>当 s ≠ 0 时，存在误差，需要通过控制律消除</li>
+</ul>
+<h4 id="2-1-3-滑模存在条件"><a href="#2-1-3-滑模存在条件" class="headerlink" title="2.1.3 滑模存在条件"></a>2.1.3 滑模存在条件</h4><p>滑模存在的充分条件（李雅普诺夫稳定性）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">V = (1/2)·s²  (定义能量函数)</span><br><span class="line">dV/dt = s·(ds/dt) &lt; 0  (能量必须减小)</span><br></pre></td></tr></table></figure>
+<h3 id="2-2-滑模观测器完整推导"><a href="#2-2-滑模观测器完整推导" class="headerlink" title="2.2 滑模观测器完整推导"></a>2.2 滑模观测器完整推导</h3><h4 id="2-2-1-电机数学模型（连续域）"><a href="#2-2-1-电机数学模型（连续域）" class="headerlink" title="2.2.1 电机数学模型（连续域）"></a>2.2.1 电机数学模型（连续域）</h4><p>在α-β坐标系下，PMSM电机的电压方程为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">dIα/dt = -(Rs/Ls)·Iα + (1/Ls)·Uα - (1/Ls)·Eα</span><br><span class="line">dIβ/dt = -(Rs/Ls)·Iβ + (1/Ls)·Uβ - (1/Ls)·Eβ</span><br></pre></td></tr></table></figure>
+<p>整理得：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dI/dt = A·I + B·U - B·E</span><br></pre></td></tr></table></figure>
+<p>其中：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">I = [Iα, Iβ]ᵀ     (电流向量)</span><br><span class="line">U = [Uα, Uβ]ᵀ     (电压向量)</span><br><span class="line">E = [Eα, Eβ]ᵀ     (反电动势向量)</span><br><span class="line">A = -(Rs/Ls)·I    (系统矩阵)</span><br><span class="line">B = (1/Ls)·I      (输入矩阵)</span><br></pre></td></tr></table></figure></p>
+<h4 id="2-2-2-构造观测器"><a href="#2-2-2-构造观测器" class="headerlink" title="2.2.2 构造观测器"></a>2.2.2 构造观测器</h4><p>我们构造一个与实际电机并行的观测器模型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">dÎα/dt = -(Rs/Ls)·Îα + (1/Ls)·Uα - (1/Ls)·Êα</span><br><span class="line">dÎβ/dt = -(Rs/Ls)·Îβ + (1/Ls)·Uβ - (1/Ls)·Êβ</span><br></pre></td></tr></table></figure>
+<p><strong>关键</strong>：观测器中的 Êα, Êβ 是通过滑模控制律估算的，而不是实际测量值！</p>
+<h4 id="2-2-3-定义电流误差（滑模面）"><a href="#2-2-3-定义电流误差（滑模面）" class="headerlink" title="2.2.3 定义电流误差（滑模面）"></a>2.2.3 定义电流误差（滑模面）</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">eα = Îα - Iα</span><br><span class="line">eβ = Îβ - Iβ</span><br></pre></td></tr></table></figure>
+<p>用向量形式：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">e = Î - I</span><br></pre></td></tr></table></figure></p>
+<h4 id="2-2-4-误差动力学方程"><a href="#2-2-4-误差动力学方程" class="headerlink" title="2.2.4 误差动力学方程"></a>2.2.4 误差动力学方程</h4><p>用观测器方程减去实际方程：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">deα/dt = dÎα/dt - dIα/dt</span><br><span class="line">       = -(Rs/Ls)·(Îα - Iα) - (1/Ls)·(Êα - Eα)</span><br><span class="line">       = -(Rs/Ls)·eα - (1/Ls)·(Êα - Eα)</span><br><span class="line"></span><br><span class="line">deβ/dt = -(Rs/Ls)·eβ - (1/Ls)·(Êβ - Eβ)</span><br></pre></td></tr></table></figure>
+<h4 id="2-2-5-设计滑模控制律"><a href="#2-2-5-设计滑模控制律" class="headerlink" title="2.2.5 设计滑模控制律"></a>2.2.5 设计滑模控制律</h4><p>我们的目标是：<strong>使 e = 0</strong>，即估算电流等于实际电流。</p>
+<p>使用<strong>等速趋近律</strong>设计控制律：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Êα = h·sat(eα, ε)</span><br><span class="line">Êβ = h·sat(eβ, ε)</span><br></pre></td></tr></table></figure>
+<p>其中：</p>
+<ul>
+<li><code>h</code>：滑模增益（必须足够大以保证滑模存在）</li>
+<li><code>sat()</code>：饱和函数（替代符号函数以减少抖振）</li>
+</ul>
+<h4 id="2-2-6-为什么控制律能估算反电动势？"><a href="#2-2-6-为什么控制律能估算反电动势？" class="headerlink" title="2.2.6 为什么控制律能估算反电动势？"></a>2.2.6 为什么控制律能估算反电动势？</h4><p>当系统进入滑动模态后（e = 0，de/dt = 0），从误差动力学方程：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">0 = -(Rs/Ls)·0 - (1/Ls)·(Êα - Eα)</span><br></pre></td></tr></table></figure>
+<p>解得：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Êα = Eα</span><br><span class="line">Êβ = Eβ</span><br></pre></td></tr></table></figure></p>
+<p><strong>结论</strong>：在滑模状态下，估算的反电动势收敛于真实的反电动势！</p>
+<h3 id="2-3-饱和函数-vs-符号函数"><a href="#2-3-饱和函数-vs-符号函数" class="headerlink" title="2.3 饱和函数 vs 符号函数"></a>2.3 饱和函数 vs 符号函数</h3><h4 id="2-3-1-符号函数（传统滑模）"><a href="#2-3-1-符号函数（传统滑模）" class="headerlink" title="2.3.1 符号函数（传统滑模）"></a>2.3.1 符号函数（传统滑模）</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sign</span>(x) = &#123; <span class="number">+1</span>,  x &gt; <span class="number">0</span></span><br><span class="line">         &#123;  <span class="number">0</span>,  x = <span class="number">0</span></span><br><span class="line">         &#123; <span class="number">-1</span>,  x &lt; <span class="number">0</span></span><br></pre></td></tr></table></figure>
+<p><strong>问题</strong>：在滑模面附近产生高频抖振（chattering）</p>
+<h4 id="2-3-2-饱和函数（改进滑模）"><a href="#2-3-2-饱和函数（改进滑模）" class="headerlink" title="2.3.2 饱和函数（改进滑模）"></a>2.3.2 饱和函数（改进滑模）</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sat</span>(x, ε) = &#123; <span class="number">+1</span>,      x &gt; ε</span><br><span class="line">            &#123;  x/ε,   -ε ≤ x ≤ ε</span><br><span class="line">            &#123; <span class="number">-1</span>,      x &lt; -ε</span><br></pre></td></tr></table></figure>
+<p><strong>优势</strong>：在边界层内线性变化，减少抖振</p>
+<h4 id="2-3-3-代码实现"><a href="#2-3-3-代码实现" class="headerlink" title="2.3.3 代码实现"></a>2.3.3 代码实现</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SMO.cpp中的实现</span></span><br><span class="line"><span class="function"><span class="type">float</span> <span class="title">SMO::sat</span><span class="params">(<span class="type">float</span> err, <span class="type">float</span> limits)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (err &gt; limits) <span class="keyword">return</span> <span class="number">1</span>;       <span class="comment">// 超过上界</span></span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span> (err &lt; -limits) <span class="keyword">return</span> <span class="number">-1</span>; <span class="comment">// 超过下界</span></span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">return</span> err / limits;          <span class="comment">// 线性区</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>使用示例</strong>：<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Ealpha = h * <span class="built_in">sat</span>(Ialpha_Err, <span class="number">0.5f</span>);  <span class="comment">// limits = 0.5</span></span><br><span class="line">Ebeta  = h * <span class="built_in">sat</span>(Ibeta_Err, <span class="number">0.5f</span>);</span><br></pre></td></tr></table></figure></p>
+<h3 id="2-4-滑模增益h的选择"><a href="#2-4-滑模增益h的选择" class="headerlink" title="2.4 滑模增益h的选择"></a>2.4 滑模增益h的选择</h3><h4 id="2-4-1-理论分析"><a href="#2-4-1-理论分析" class="headerlink" title="2.4.1 理论分析"></a>2.4.1 理论分析</h4><p>滑模存在的条件：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">h &gt; |Eα|_max  且  h &gt; |Eβ|_max</span><br></pre></td></tr></table></figure></p>
+<p>即滑模增益必须大于最大反电动势。</p>
+<h4 id="2-4-2-工程经验"><a href="#2-4-2-工程经验" class="headerlink" title="2.4.2 工程经验"></a>2.4.2 工程经验</h4><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>电机类型</th>
+<th>推荐h值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>小型云台电机(2208)</td>
+<td>0.2 ~ 0.5</td>
+<td>电感大，反电动势小</td>
+</tr>
+<tr>
+<td>中型电机</td>
+<td>0.5 ~ 1.0</td>
+<td>平衡值</td>
+</tr>
+<tr>
+<td>大型电机</td>
+<td>1.0 ~ 2.0</td>
+<td>电感小，反电动势大</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h4 id="2-4-3-h值调试技巧"><a href="#2-4-3-h值调试技巧" class="headerlink" title="2.4.3 h值调试技巧"></a>2.4.3 h值调试技巧</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">现象1：电机不转，电流振荡</span><br><span class="line">原因：h太小，滑模条件不满足</span><br><span class="line">解决：h × 1.5，逐步增大</span><br><span class="line"></span><br><span class="line">现象2：高频噪音，估算角度抖动</span><br><span class="line">原因：h太大，过度反应</span><br><span class="line">解决：h × 0.8，逐步减小</span><br><span class="line"></span><br><span class="line">现象3：低速性能差</span><br><span class="line">原因：低速时反电动势小，h相对太大</span><br><span class="line">解决：使用自适应h或分段h</span><br></pre></td></tr></table></figure>
+<h3 id="2-5-滑模观测器完整代码解析"><a href="#2-5-滑模观测器完整代码解析" class="headerlink" title="2.5 滑模观测器完整代码解析"></a>2.5 滑模观测器完整代码解析</h3><h4 id="2-5-1-数据结构定义"><a href="#2-5-1-数据结构定义" class="headerlink" title="2.5.1 数据结构定义"></a>2.5.1 数据结构定义</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SMO.h</span></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">SMO_params</span> &#123;</span><br><span class="line">  <span class="type">float</span> Rs;           <span class="comment">// 相电阻 (Ω)</span></span><br><span class="line">  <span class="type">float</span> Ls;           <span class="comment">// 相电感 (H)</span></span><br><span class="line">  <span class="type">float</span> h;            <span class="comment">// 滑模增益</span></span><br><span class="line">  <span class="type">float</span> PLL_kp;       <span class="comment">// 锁相环比例系数</span></span><br><span class="line">  <span class="type">float</span> PLL_ki;       <span class="comment">// 锁相环积分系数</span></span><br><span class="line">  <span class="type">float</span> VF_acc;       <span class="comment">// VF启动加速度</span></span><br><span class="line">  <span class="type">float</span> VF_max_vel;   <span class="comment">// VF启动最大速度</span></span><br><span class="line">  <span class="type">float</span> VF_uq_delta;  <span class="comment">// VF启动电压增量</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">SMO</span> &#123;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">  <span class="comment">// 电机参数</span></span><br><span class="line">  <span class="type">float</span> Rs;           <span class="comment">// 定子电阻</span></span><br><span class="line">  <span class="type">float</span> Ls;           <span class="comment">// 定子电感</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 电压电流变量</span></span><br><span class="line">  <span class="type">float</span> Ualpha, Ubeta;          <span class="comment">// α-β轴电压</span></span><br><span class="line">  <span class="type">float</span> Ialpha, Ibeta;          <span class="comment">// α-β轴实际电流</span></span><br><span class="line">  <span class="type">float</span> Est_Ialpha, Est_Ibeta;  <span class="comment">// α-β轴估算电流</span></span><br><span class="line">  <span class="type">float</span> Ialpha_Err, Ibeta_Err;  <span class="comment">// 电流误差（滑模面）</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 滑模控制</span></span><br><span class="line">  <span class="type">float</span> h;                      <span class="comment">// 滑模增益</span></span><br><span class="line">  <span class="type">float</span> Ealpha, Ebeta;          <span class="comment">// 估算反电动势（原始）</span></span><br><span class="line">  <span class="type">float</span> Ealpha_flt, Ebeta_flt;  <span class="comment">// 滤波后反电动势</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 锁相环</span></span><br><span class="line">  <span class="type">float</span> Est_Theta;              <span class="comment">// 估算电角度</span></span><br><span class="line">  <span class="type">float</span> Est_speed;              <span class="comment">// 估算电角速度</span></span><br><span class="line">  <span class="type">float</span> PLL_kp, PLL_ki;         <span class="comment">// PLL参数</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 时间变量</span></span><br><span class="line">  <span class="type">uint32_t</span> now_time;</span><br><span class="line">  <span class="type">uint32_t</span> last_time;</span><br><span class="line">  <span class="type">float</span> Ts;                     <span class="comment">// 采样周期</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">  <span class="built_in">SMO</span>(SMO_params para);                    <span class="comment">// 构造函数</span></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">SMO_closeloop</span><span class="params">(Cur_vol_s Cur_vol)</span></span>;  <span class="comment">// 滑模闭环</span></span><br><span class="line">  <span class="function"><span class="type">float</span> <span class="title">sat</span><span class="params">(<span class="type">float</span> err, <span class="type">float</span> limits)</span></span>;     <span class="comment">// 饱和函数</span></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">SMO_position_estimate</span><span class="params">()</span></span>;           <span class="comment">// 位置估算</span></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">PLL_calc</span><span class="params">(<span class="type">float</span> alpha, <span class="type">float</span> beta)</span></span>; <span class="comment">// 锁相环计算</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h4 id="2-5-2-核心函数1：滑模闭环"><a href="#2-5-2-核心函数1：滑模闭环" class="headerlink" title="2.5.2 核心函数1：滑模闭环"></a>2.5.2 核心函数1：滑模闭环</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SMO.cpp</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">SMO::SMO_closeloop</span><span class="params">(Cur_vol_s Cur_vol)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// ========== 步骤1：计算采样周期 ==========</span></span><br><span class="line">  now_time = <span class="built_in">micros</span>();</span><br><span class="line">  Ts = (now_time - last_time) * <span class="number">1e-6f</span>;  <span class="comment">// 微秒转秒</span></span><br><span class="line">  last_time = now_time;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 异常处理：防止时间溢出或过大的采样周期</span></span><br><span class="line">  <span class="keyword">if</span> (Ts &lt; <span class="number">0</span> || Ts &gt; <span class="number">5e-3f</span>) Ts = <span class="number">1e-3f</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤2：更新实际电流 ==========</span></span><br><span class="line">  Ialpha = Cur_vol.I_alpha;</span><br><span class="line">  Ibeta = Cur_vol.I_beta;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤3：Park逆变换：dq→αβ ==========</span></span><br><span class="line">  <span class="comment">// 假设Ud = 0（只控制q轴电流产生转矩）</span></span><br><span class="line">  <span class="comment">// Uα = Ud·cos(θ) - Uq·sin(θ) = -Uq·sin(θ)</span></span><br><span class="line">  <span class="comment">// Uβ = Ud·sin(θ) + Uq·cos(θ) = Uq·cos(θ)</span></span><br><span class="line">  Ualpha = -<span class="built_in">sin</span>(Est_Theta) * Cur_vol.Uq;</span><br><span class="line">  Ubeta = <span class="built_in">cos</span>(Est_Theta) * Cur_vol.Uq;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤4：执行位置估算 ==========</span></span><br><span class="line">  <span class="built_in">SMO_position_estimate</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>代码说明</strong>：</p>
+<ol>
+<li>采样周期Ts必须准确，影响欧拉积分精度</li>
+<li>Ud=0是最大转矩/安比特性的控制策略</li>
+<li>使用估算角度Est_Theta进行Park逆变换</li>
+</ol>
+<h4 id="2-5-3-核心函数2：位置估算"><a href="#2-5-3-核心函数2：位置估算" class="headerlink" title="2.5.3 核心函数2：位置估算"></a>2.5.3 核心函数2：位置估算</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SMO.cpp</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">SMO::SMO_position_estimate</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// ========== 步骤1：估算电流（欧拉法离散化） ==========</span></span><br><span class="line">  <span class="comment">// 连续域：dÎ/dt = -(Rs/Ls)·Î + (1/Ls)·(U - E)</span></span><br><span class="line">  <span class="comment">// 离散化：Î[k+1] = Î[k] + Ts·[-(Rs/Ls)·Î[k] + (1/Ls)·(U[k] - E[k])]</span></span><br><span class="line"></span><br><span class="line">  Est_Ialpha += Ts * (-Rs / Ls * Est_Ialpha + <span class="number">1</span> / Ls * (Ualpha - Ealpha));</span><br><span class="line">  Est_Ibeta += Ts * (-Rs / Ls * Est_Ibeta + <span class="number">1</span> / Ls * (Ubeta - Ebeta));</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤2：计算电流误差（滑模面） ==========</span></span><br><span class="line">  Ialpha_Err = Est_Ialpha - Ialpha;</span><br><span class="line">  Ibeta_Err = Est_Ibeta - Ibeta;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤3：滑模控制律（估算反电动势） ==========</span></span><br><span class="line">  <span class="comment">// Ê = h·sat(e)</span></span><br><span class="line">  Ealpha = h * <span class="built_in">sat</span>(Ialpha_Err, <span class="number">0.5f</span>);</span><br><span class="line">  Ebeta = h * <span class="built_in">sat</span>(Ibeta_Err, <span class="number">0.5f</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤4：低通滤波 ==========</span></span><br><span class="line">  <span class="comment">// 滑模输出含有高频分量，需要滤波</span></span><br><span class="line">  Ealpha_flt = <span class="number">0.1</span> * Ealpha_flt + <span class="number">0.9</span> * Ealpha;</span><br><span class="line">  Ebeta_flt = <span class="number">0.1</span> * Ebeta_flt + <span class="number">0.9</span> * Ebeta;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤5：锁相环提取角度 ==========</span></span><br><span class="line">  <span class="keyword">if</span> (_dir &gt;= <span class="number">0</span>)</span><br><span class="line">    <span class="built_in">PLL_calc</span>(Ealpha_flt, Ebeta_flt);</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    <span class="built_in">PLL_calc</span>(-Ealpha_flt, -Ebeta_flt);  <span class="comment">// 反向时取反</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>代码说明</strong>：</p>
+<ol>
+<li>欧拉法是一阶数值积分，精度适中但计算简单</li>
+<li>滤波系数0.1/0.9可根据需要调整</li>
+<li>方向判断确保正反转都能正常工作</li>
+</ol>
+<h4 id="2-5-4-核心函数3：饱和函数"><a href="#2-5-4-核心函数3：饱和函数" class="headerlink" title="2.5.4 核心函数3：饱和函数"></a>2.5.4 核心函数3：饱和函数</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SMO.cpp</span></span><br><span class="line"><span class="function"><span class="type">float</span> <span class="title">SMO::sat</span><span class="params">(<span class="type">float</span> err, <span class="type">float</span> limits)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (err &gt; limits) <span class="keyword">return</span> <span class="number">1</span>;       <span class="comment">// 饱和区：输出+1</span></span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span> (err &lt; -limits) <span class="keyword">return</span> <span class="number">-1</span>; <span class="comment">// 饱和区：输出-1</span></span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">return</span> err / limits;          <span class="comment">// 线性区：归一化输出</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>函数特性</strong>：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">输出</span><br><span class="line">  1 |           ┌─────────</span><br><span class="line">    |          /</span><br><span class="line">    |         /</span><br><span class="line">    |        /</span><br><span class="line">  0 |-------+--------→ 误差</span><br><span class="line">    |      /</span><br><span class="line">    |     /</span><br><span class="line">    |    /</span><br><span class="line"> -1  ─────────┘</span><br><span class="line">       -limits  +limits</span><br></pre></td></tr></table></figure></p>
+<h3 id="2-6-滑模观测器信号流图"><a href="#2-6-滑模观测器信号流图" class="headerlink" title="2.6 滑模观测器信号流图"></a>2.6 滑模观测器信号流图</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">┌────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                    滑模观测器完整信号流                        │</span><br><span class="line">└────────────────────────────────────────────────────────────────┘</span><br><span class="line"></span><br><span class="line">    实际电机              观测器模型</span><br><span class="line">    ┌─────────┐          ┌─────────┐</span><br><span class="line">Uα→ │  dIα/dt  │          │ dÎα/dt   │←─── Êα</span><br><span class="line">    │ = f(I,U,E)│          │ = f(Î,U,Ê)│</span><br><span class="line">    └─────────┘          └─────────┘</span><br><span class="line">         │                     │</span><br><span class="line">         ↓ Iα                  ↓ Îα</span><br><span class="line">         └──────────┬──────────┘</span><br><span class="line">                    ↓</span><br><span class="line">              ┌──────────┐</span><br><span class="line">              │ eα = Îα-Iα│  ← 滑模面</span><br><span class="line">              └──────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓</span><br><span class="line">              ┌──────────┐</span><br><span class="line">              │ sat(eα,ε) │</span><br><span class="line">              └──────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓</span><br><span class="line">              ┌──────────┐</span><br><span class="line">              │  × h      │</span><br><span class="line">              └──────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓ Êα</span><br><span class="line">            ┌───────────────┐</span><br><span class="line">            │ 低通滤波      │</span><br><span class="line">            └───────────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓ Eα_flt</span><br><span class="line">            ┌───────────────┐</span><br><span class="line">            │    PLL        │</span><br><span class="line">            └───────────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ↓</span><br><span class="line">              θ̂ (估算角度)</span><br></pre></td></tr></table></figure>
+<h3 id="2-7-滑模观测器稳定性分析"><a href="#2-7-滑模观测器稳定性分析" class="headerlink" title="2.7 滑模观测器稳定性分析"></a>2.7 滑模观测器稳定性分析</h3><h4 id="2-7-1-李雅普诺夫函数"><a href="#2-7-1-李雅普诺夫函数" class="headerlink" title="2.7.1 李雅普诺夫函数"></a>2.7.1 李雅普诺夫函数</h4><p>定义能量函数：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">V = (1/2)·(eα² + eβ²)</span><br></pre></td></tr></table></figure></p>
+<h4 id="2-7-2-能量变化率"><a href="#2-7-2-能量变化率" class="headerlink" title="2.7.2 能量变化率"></a>2.7.2 能量变化率</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">dV/dt = eα·(deα/dt) + eβ·(deβ/dt)</span><br><span class="line">      = eα·[-(Rs/Ls)·eα - (1/Ls)·(h·sat(eα) - Eα)]</span><br><span class="line">        + eβ·[-(Rs/Ls)·eβ - (1/Ls)·(h·sat(eβ) - Eβ)]</span><br><span class="line">      = -(Rs/Ls)·(eα² + eβ²) - (1/Ls)·[eα·(h·sat(eα) - Eα)</span><br><span class="line">                                          + eβ·(h·sat(eβ) - Eβ)]</span><br></pre></td></tr></table></figure>
+<h4 id="2-7-3-滑模存在条件"><a href="#2-7-3-滑模存在条件" class="headerlink" title="2.7.3 滑模存在条件"></a>2.7.3 滑模存在条件</h4><p>当 |e| &gt; ε（在饱和区）时，sat(e) = sign(e)，则：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">e·(h·sat(e) - E) = h·|e| - e·E</span><br></pre></td></tr></table></figure>
+<p>如果 h &gt; |E|_max，则：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">e·(h·sat(e) - E) &gt; h·|e| - |e|·|E|_max = |e|·(h - |E|_max) &gt; 0</span><br></pre></td></tr></table></figure></p>
+<p>因此：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dV/dt = -(Rs/Ls)·|e|² - (1/Ls)·|e|·(h - |E|_max) &lt; 0</span><br></pre></td></tr></table></figure></p>
+<p><strong>结论</strong>：当 h &gt; |E|_max 时，系统全局渐近稳定！</p>
+<hr>
+<h2 id="3-锁相环-PLL-深度解析"><a href="#3-锁相环-PLL-深度解析" class="headerlink" title="3. 锁相环(PLL)深度解析"></a>3. 锁相环(PLL)深度解析</h2><h3 id="3-1-PLL基本原理"><a href="#3-1-PLL基本原理" class="headerlink" title="3.1 PLL基本原理"></a>3.1 PLL基本原理</h3><h4 id="3-1-1-什么是锁相环？"><a href="#3-1-1-什么是锁相环？" class="headerlink" title="3.1.1 什么是锁相环？"></a>3.1.1 什么是锁相环？</h4><p>锁相环（Phase-Locked Loop，PLL）是一种<strong>相位反馈控制系统</strong>，能够：</p>
+<ol>
+<li>跟踪输入信号的相位</li>
+<li>输出与输入信号同频同相的信号</li>
+<li>同时输出频率信息</li>
+</ol>
+<h4 id="3-1-2-为什么需要PLL？"><a href="#3-1-2-为什么需要PLL？" class="headerlink" title="3.1.2 为什么需要PLL？"></a>3.1.2 为什么需要PLL？</h4><p>在无感FOC中，我们从滑模观测器得到反电动势：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Eα = -Ke·ω·sin(θ)</span><br><span class="line">Eβ = Ke·ω·cos(θ)</span><br></pre></td></tr></table></figure></p>
+<p><strong>问题</strong>：如何从Eα、Eβ中提取角度θ？</p>
+<p><strong>方法1：直接计算</strong><br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">θ = atan2(-Eα, Eβ)</span><br></pre></td></tr></table></figure><br><strong>缺点</strong>：atan2计算量大，且对噪声敏感</p>
+<p><strong>方法2：PLL（推荐）</strong><br><strong>优点</strong>：</p>
+<ul>
+<li>天然滤波作用</li>
+<li>同时获得角度和速度</li>
+<li>对噪声鲁棒</li>
+</ul>
+<h3 id="3-2-PLL数学模型"><a href="#3-2-PLL数学模型" class="headerlink" title="3.2 PLL数学模型"></a>3.2 PLL数学模型</h3><h4 id="3-2-1-相位误差计算"><a href="#3-2-1-相位误差计算" class="headerlink" title="3.2.1 相位误差计算"></a>3.2.1 相位误差计算</h4><p>利用三角恒等式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">-Eα·cos(θ̂) - Eβ·sin(θ̂)</span><br><span class="line">= -(-Ke·ω·sin(θ))·cos(θ̂) - (Ke·ω·cos(θ))·sin(θ̂)</span><br><span class="line">= Ke·ω·[sin(θ)·cos(θ̂) - cos(θ)·sin(θ̂)]</span><br><span class="line">= Ke·ω·sin(θ - θ̂)  ← 正弦定理</span><br></pre></td></tr></table></figure>
+<p>当角度误差较小时：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sin(θ - θ̂) ≈ θ - θ̂</span><br></pre></td></tr></table></figure></p>
+<p>因此：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">相位误差 ∝ (θ - θ̂)</span><br></pre></td></tr></table></figure></p>
+<h4 id="3-2-2-PLL控制框图"><a href="#3-2-2-PLL控制框图" class="headerlink" title="3.2.2 PLL控制框图"></a>3.2.2 PLL控制框图</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">┌────────────────────────────────────────────────────────────┐</span><br><span class="line">│                      PLL控制框图                            │</span><br><span class="line">└────────────────────────────────────────────────────────────┘</span><br><span class="line"></span><br><span class="line">    Eα_flt, Eβ_flt</span><br><span class="line">         │</span><br><span class="line">         ↓</span><br><span class="line">    ┌──────────────────┐</span><br><span class="line">    │ 相位误差计算      │</span><br><span class="line">    │ θe = -Eα·cos(θ̂)  │</span><br><span class="line">    │      -Eβ·sin(θ̂)  │</span><br><span class="line">    └──────────────────┘</span><br><span class="line">         │</span><br><span class="line">         ↓ θe (相位误差)</span><br><span class="line">    ┌──────────────────┐</span><br><span class="line">    │   PI控制器        │</span><br><span class="line">    │ ω̂ = Kp·θe +     │</span><br><span class="line">    │      Ki·∫θe·dt   │</span><br><span class="line">    └──────────────────┘</span><br><span class="line">         │</span><br><span class="line">         ↓ ω̂ (估算速度)</span><br><span class="line">    ┌──────────────────┐</span><br><span class="line">    │    积分器         │</span><br><span class="line">    │ θ̂ = θ̂ + ω̂·Ts   │</span><br><span class="line">    └──────────────────┘</span><br><span class="line">         │</span><br><span class="line">         ↓ θ̂ (估算角度)</span><br><span class="line">         └───→ 反馈到相位误差计算</span><br></pre></td></tr></table></figure>
+<h4 id="3-2-3-PLL传递函数"><a href="#3-2-3-PLL传递函数" class="headerlink" title="3.2.3 PLL传递函数"></a>3.2.3 PLL传递函数</h4><p>开环传递函数：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">G(s) = (Kp·s + Ki) / s²</span><br></pre></td></tr></table></figure></p>
+<p>闭环传递函数（特征方程）：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">1 + G(s) = 0</span><br><span class="line">s² + Kp·s + Ki = 0</span><br></pre></td></tr></table></figure></p>
+<p>这是典型的<strong>二阶系统</strong>！</p>
+<h4 id="3-2-4-与二阶系统对应"><a href="#3-2-4-与二阶系统对应" class="headerlink" title="3.2.4 与二阶系统对应"></a>3.2.4 与二阶系统对应</h4><p>标准二阶系统：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">s² + 2·ζ·ωn·s + ωn² = 0</span><br></pre></td></tr></table></figure></p>
+<p>对应关系：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ωn² = Ki        (自然频率平方)</span><br><span class="line">2·ζ·ωn = Kp     (阻尼比相关)</span><br></pre></td></tr></table></figure></p>
+<p>因此：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ωn = √Ki</span><br><span class="line">ζ = Kp / (2·√Ki)</span><br></pre></td></tr></table></figure></p>
+<h4 id="3-2-5-PLL参数设计"><a href="#3-2-5-PLL参数设计" class="headerlink" title="3.2.5 PLL参数设计"></a>3.2.5 PLL参数设计</h4><p><strong>步骤1</strong>：选择自然频率ωn</p>
+<ul>
+<li>ωn越大，响应越快，但滤波效果差</li>
+<li>推荐：ωn = 100~500 rad/s</li>
+</ul>
+<p><strong>步骤2</strong>：选择阻尼比ζ</p>
+<ul>
+<li>ζ = 0.707（临界阻尼，无超调）</li>
+<li>ζ = 1.0（过阻尼，响应慢但平滑）</li>
+</ul>
+<p><strong>步骤3</strong>：计算Kp、Ki<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Ki = ωn²</span><br><span class="line">Kp = 2·ζ·ωn</span><br></pre></td></tr></table></figure></p>
+<p><strong>示例</strong>（ωn = 200, ζ = 0.707）：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Ki = 200² = 40000</span><br><span class="line">Kp = 2 × 0.707 × 200 = 282.8 ≈ 300</span><br></pre></td></tr></table></figure></p>
+<h3 id="3-3-PLL代码实现"><a href="#3-3-PLL代码实现" class="headerlink" title="3.3 PLL代码实现"></a>3.3 PLL代码实现</h3><h4 id="3-3-1-PLL计算函数"><a href="#3-3-1-PLL计算函数" class="headerlink" title="3.3.1 PLL计算函数"></a>3.3.1 PLL计算函数</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SMO.cpp</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">SMO::PLL_calc</span><span class="params">(<span class="type">float</span> alpha, <span class="type">float</span> beta)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// ========== 步骤1：计算相位误差 ==========</span></span><br><span class="line">  <span class="comment">// 公式：θe = -Eα·cos(θ̂) - Eβ·sin(θ̂)</span></span><br><span class="line">  <span class="comment">// 推导：当θ̂=θ时，θe=0</span></span><br><span class="line">  Theta_err = <span class="number">-1</span> * alpha * <span class="built_in">cos</span>(Est_Theta) + beta * <span class="built_in">sin</span>(Est_Theta) * <span class="number">-1</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 简化写法：</span></span><br><span class="line">  <span class="comment">// Theta_err = -alpha * cos(Est_Theta) - beta * sin(Est_Theta);</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤2：PI控制器（位置式） ==========</span></span><br><span class="line">  <span class="comment">// 累加积分项</span></span><br><span class="line">  i_err += Ts * PLL_ki * Theta_err;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 计算输出速度</span></span><br><span class="line">  Est_speed = PLL_kp * Theta_err + i_err;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤3：速度低通滤波（可选） ==========</span></span><br><span class="line">  Est_speed_F = Est_speed_F * <span class="number">0.9</span> + Est_speed * <span class="number">0.1</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤4：积分得到角度 ==========</span></span><br><span class="line">  Est_Theta += Ts * Est_speed;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 步骤5：角度归一化到[0, 2π] ==========</span></span><br><span class="line">  Est_Theta = _normalizeAngle(Est_Theta);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="3-3-2-关键点说明"><a href="#3-3-2-关键点说明" class="headerlink" title="3.3.2 关键点说明"></a>3.3.2 关键点说明</h4><p><strong>1. 相位误差计算详解</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Theta_err = -alpha * <span class="built_in">cos</span>(Est_Theta) - beta * <span class="built_in">sin</span>(Est_Theta);</span><br></pre></td></tr></table></figure>
+<p>展开：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Theta_err = -Eα·cos(θ̂) - Eβ·sin(θ̂)</span><br></pre></td></tr></table></figure></p>
+<p>假设实际角度为θ，代入反电动势公式：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">= -(-Ke·ω·sin(θ))·cos(θ̂) - (Ke·ω·cos(θ))·sin(θ̂)</span><br><span class="line">= Ke·ω·[sin(θ)·cos(θ̂) - cos(θ)·sin(θ̂)]</span><br><span class="line">= Ke·ω·sin(θ - θ̂)  ← 正弦差公式</span><br></pre></td></tr></table></figure></p>
+<p><strong>物理意义</strong>：</p>
+<ul>
+<li>当 θ̂ = θ 时，Theta_err = 0</li>
+<li>当 θ̂ &lt; θ 时，Theta_err &gt; 0</li>
+<li>当 θ̂ &gt; θ 时，Theta_err &lt; 0</li>
+</ul>
+<p><strong>2. PI控制器详解</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">i_err += Ts * PLL_ki * Theta_err;  <span class="comment">// 积分累加</span></span><br><span class="line">Est_speed = PLL_kp * Theta_err + i_err;</span><br></pre></td></tr></table></figure>
+<p><strong>比例项</strong>：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ω_p = Kp·θe</span><br></pre></td></tr></table></figure></p>
+<ul>
+<li>快速响应相位误差</li>
+<li>决定响应速度</li>
+</ul>
+<p><strong>积分项</strong>：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ω_i = Ki·∫θe·dt</span><br></pre></td></tr></table></figure></p>
+<ul>
+<li>消除稳态误差</li>
+<li>保证最终θ̂ = θ</li>
+</ul>
+<p><strong>3. 角度积分</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Est_Theta += Ts * Est_speed;</span><br></pre></td></tr></table></figure>
+<p>物理意义：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">θ̂(k+1) = θ̂(k) + ω̂(k)·Ts</span><br></pre></td></tr></table></figure></p>
+<p>这是速度积分得到角度的基本公式。</p>
+<h3 id="3-4-PLL动态响应分析"><a href="#3-4-PLL动态响应分析" class="headerlink" title="3.4 PLL动态响应分析"></a>3.4 PLL动态响应分析</h3><h4 id="3-4-1-阶跃响应"><a href="#3-4-1-阶跃响应" class="headerlink" title="3.4.1 阶跃响应"></a>3.4.1 阶跃响应</h4><p>设初始角度误差为Δθ，则：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">θ̂(t) = θ(t) - Δθ·e^(-ζ·ωn·t)·[cos(ωd·t) + (ζ/√(1-ζ²))·sin(ωd·t)]</span><br></pre></td></tr></table></figure>
+<p>其中：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ωd = ωn·√(1-ζ²)  (阻尼振荡频率)</span><br></pre></td></tr></table></figure></p>
+<h4 id="3-4-2-响应特性"><a href="#3-4-2-响应特性" class="headerlink" title="3.4.2 响应特性"></a>3.4.2 响应特性</h4><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>阻尼比ζ</th>
+<th>响应特性</th>
+<th>超调量</th>
+<th>调节时间</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ζ &lt; 0.7</td>
+<td>欠阻尼</td>
+<td>有超调</td>
+<td>短</td>
+</tr>
+<tr>
+<td>ζ = 0.707</td>
+<td>临界阻尼</td>
+<td>4.3%</td>
+<td>最短</td>
+</tr>
+<tr>
+<td>ζ &gt; 1</td>
+<td>过阻尼</td>
+<td>无</td>
+<td>长</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>推荐</strong>：ζ = 0.707~1.0</p>
+<h3 id="3-5-PLL调试技巧"><a href="#3-5-PLL调试技巧" class="headerlink" title="3.5 PLL调试技巧"></a>3.5 PLL调试技巧</h3><h4 id="3-5-1-参数调节方法"><a href="#3-5-1-参数调节方法" class="headerlink" title="3.5.1 参数调节方法"></a>3.5.1 参数调节方法</h4><p><strong>方法1：经验公式</strong><br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Ki = ωn² = (200~500)² = 40000~250000</span><br><span class="line">Kp = 2·ζ·√Ki = 1.414·√Ki</span><br></pre></td></tr></table></figure></p>
+<p><strong>方法2：逐步调试</strong><br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1. 设置Ki = 0，只调节Kp</span><br><span class="line">2. 增大Kp直到速度开始振荡</span><br><span class="line">3. Kp取振荡值的50%</span><br><span class="line">4. 增加Ki消除稳态误差</span><br><span class="line">5. 微调Kp和Ki</span><br></pre></td></tr></table></figure></p>
+<h4 id="3-5-2-常见问题诊断"><a href="#3-5-2-常见问题诊断" class="headerlink" title="3.5.2 常见问题诊断"></a>3.5.2 常见问题诊断</h4><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>原因</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>角度跟踪慢</td>
+<td>Kp太小</td>
+<td>增大Kp</td>
+</tr>
+<tr>
+<td>角度振荡</td>
+<td>Kp太大</td>
+<td>减小Kp</td>
+</tr>
+<tr>
+<td>稳态误差大</td>
+<td>Ki太小</td>
+<td>增大Ki</td>
+</tr>
+<tr>
+<td>速度估计噪声大</td>
+<td>需要滤波</td>
+<td>增加速度滤波</td>
+</tr>
+<tr>
+<td>负载变化丢步</td>
+<td>动态响应慢</td>
+<td>增大Kp和Ki</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="3-6-PLL完整信号流"><a href="#3-6-PLL完整信号流" class="headerlink" title="3.6 PLL完整信号流"></a>3.6 PLL完整信号流</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">┌────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                    PLL完整信号流图                             │</span><br><span class="line">└────────────────────────────────────────────────────────────────┘</span><br><span class="line"></span><br><span class="line">    Eα_flt = -Ke·ω·sin(θ)          Eβ_flt = Ke·ω·cos(θ)</span><br><span class="line">              │                              │</span><br><span class="line">              └──────────┬───────────────────┘</span><br><span class="line">                         ↓</span><br><span class="line">              ┌──────────────────────┐</span><br><span class="line">              │ 相位误差计算          │</span><br><span class="line">              │ θe = -Eα·cos(θ̂)      │</span><br><span class="line">              │      -Eβ·sin(θ̂)      │</span><br><span class="line">              │ = Ke·ω·sin(θ-θ̂)      │</span><br><span class="line">              └──────────────────────┘</span><br><span class="line">                         │</span><br><span class="line">                         ↓ θe</span><br><span class="line">              ┌──────────────────────┐</span><br><span class="line">              │      PI控制器         │</span><br><span class="line">              │ ┌─────────────────┐   │</span><br><span class="line">              │ │ P项: Kp·θe      │   │</span><br><span class="line">              │ └─────────────────┘   │</span><br><span class="line">              │ ┌─────────────────┐   │</span><br><span class="line">              │ │ I项: ∫Ki·θe·dt  │   │</span><br><span class="line">              │ └─────────────────┘   │</span><br><span class="line">              └──────────────────────┘</span><br><span class="line">                         │</span><br><span class="line">                         ↓ ω̂ (电角速度 rad/s)</span><br><span class="line">              ┌──────────────────────┐</span><br><span class="line">              │   速度低通滤波(可选)  │</span><br><span class="line">              │ ω̂_f = k·ω̂_f + (1-k)·ω̂│</span><br><span class="line">              └──────────────────────┘</span><br><span class="line">                         │</span><br><span class="line">                         ↓</span><br><span class="line">              ┌──────────────────────┐</span><br><span class="line">              │      积分器           │</span><br><span class="line">              │ θ̂(k+1) = θ̂(k) + ω̂·Ts │</span><br><span class="line">              └──────────────────────┘</span><br><span class="line">                         │</span><br><span class="line">                         ↓ θ̂ (电角度 rad)</span><br><span class="line">              ┌──────────────────────┐</span><br><span class="line">              │    角度归一化         │</span><br><span class="line">              │ θ̂ = θ̂ % (2·π)       │</span><br><span class="line">              └──────────────────────┘</span><br><span class="line">                         │</span><br><span class="line">                         ↓</span><br><span class="line">              ┌──────────────────────┐</span><br><span class="line">              │   机械角度转换        │</span><br><span class="line">              │ θ_mech = θ̂ / PP     │</span><br><span class="line">              └──────────────────────┘</span><br><span class="line">                         │</span><br><span class="line">                         └──→ 反馈到相位误差计算</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="4-SVPWM深度解析"><a href="#4-SVPWM深度解析" class="headerlink" title="4. SVPWM深度解析"></a>4. SVPWM深度解析</h2><h3 id="4-1-SVPWM基本原理"><a href="#4-1-SVPWM基本原理" class="headerlink" title="4.1 SVPWM基本原理"></a>4.1 SVPWM基本原理</h3><h4 id="4-1-1-什么是SVPWM？"><a href="#4-1-1-什么是SVPWM？" class="headerlink" title="4.1.1 什么是SVPWM？"></a>4.1.1 什么是SVPWM？</h4><p>SVPWM（Space Vector Pulse Width Modulation，空间矢量脉宽调制）是一种：</p>
+<ul>
+<li>利用三相电压空间矢量</li>
+<li>在复平面内合成任意方向电压矢量</li>
+<li>实现电机高效控制的方法</li>
+</ul>
+<h4 id="4-1-2-为什么用SVPWM？"><a href="#4-1-2-为什么用SVPWM？" class="headerlink" title="4.1.2 为什么用SVPWM？"></a>4.1.2 为什么用SVPWM？</h4><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>电压利用率</th>
+<th>谐波</th>
+<th>实现复杂度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SPWM（正弦PWM）</td>
+<td>0.866</td>
+<td>较大</td>
+<td>简单</td>
+</tr>
+<tr>
+<td><strong>SVPWM</strong></td>
+<td><strong>1.0</strong></td>
+<td><strong>小</strong></td>
+<td><strong>中等</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="4-2-三相逆变器基本原理"><a href="#4-2-三相逆变器基本原理" class="headerlink" title="4.2 三相逆变器基本原理"></a>4.2 三相逆变器基本原理</h3><h4 id="4-2-1-逆变器拓扑"><a href="#4-2-1-逆变器拓扑" class="headerlink" title="4.2.1 逆变器拓扑"></a>4.2.1 逆变器拓扑</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">       Vdc</span><br><span class="line">        │</span><br><span class="line">  ┌─────┴─────┐</span><br><span class="line">  │           │</span><br><span class="line">┌─┴─┐       ┌─┴─┐       ┌─┴─┐</span><br><span class="line">│ S1│       │ S3│       │ S5│</span><br><span class="line">└─┬─┘       └─┬─┘       └─┬─┘</span><br><span class="line">  │ A相      │ B相       │ C相</span><br><span class="line">┌─┴─┐       ┌─┴─┐       ┌─┴─┐</span><br><span class="line">│ S2│       │ S4│       │ S6│</span><br><span class="line">└─┬─┘       └─┬─┘       └─┬─┘</span><br><span class="line">  │           │           │</span><br><span class="line">  └─────┬─────┴─────┬─────┘</span><br><span class="line">        │           │</span><br><span class="line">       GND         电机</span><br></pre></td></tr></table></figure>
+<h4 id="4-2-2-开关状态"><a href="#4-2-2-开关状态" class="headerlink" title="4.2.2 开关状态"></a>4.2.2 开关状态</h4><p>每相有2种状态：上管导通(1)或下管导通(0)</p>
+<p>三相共有 2³ = 8 种开关状态：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>S1 S3 S5</th>
+<th>A B C</th>
+<th>电压矢量</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>0 0 0</td>
+<td>0 0 0</td>
+<td>零矢量</td>
+<td>零矢量</td>
+</tr>
+<tr>
+<td>1</td>
+<td>1 0 0</td>
+<td>Vdc 0 0</td>
+<td>U1</td>
+<td>基本矢量</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1 1 0</td>
+<td>Vdc Vdc 0</td>
+<td>U2</td>
+<td>基本矢量</td>
+</tr>
+<tr>
+<td>3</td>
+<td>0 1 0</td>
+<td>0 Vdc 0</td>
+<td>U3</td>
+<td>基本矢量</td>
+</tr>
+<tr>
+<td>4</td>
+<td>0 1 1</td>
+<td>0 Vdc Vdc</td>
+<td>U4</td>
+<td>基本矢量</td>
+</tr>
+<tr>
+<td>5</td>
+<td>0 0 1</td>
+<td>0 0 Vdc</td>
+<td>U5</td>
+<td>基本矢量</td>
+</tr>
+<tr>
+<td>6</td>
+<td>1 0 1</td>
+<td>Vdc 0 Vdc</td>
+<td>U6</td>
+<td>基本矢量</td>
+</tr>
+<tr>
+<td>7</td>
+<td>1 1 1</td>
+<td>Vdc Vdc Vdc</td>
+<td>零矢量</td>
+<td>零矢量</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="4-3-空间矢量图"><a href="#4-3-空间矢量图" class="headerlink" title="4.3 空间矢量图"></a>4.3 空间矢量图</h3><h4 id="4-3-1-α-β坐标系下的基本矢量"><a href="#4-3-1-α-β坐标系下的基本矢量" class="headerlink" title="4.3.1 α-β坐标系下的基本矢量"></a>4.3.1 α-β坐标系下的基本矢量</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">      β轴</span><br><span class="line">        ↑</span><br><span class="line">        │</span><br><span class="line">U3(010) │    U2(110)</span><br><span class="line">   \    │    /</span><br><span class="line">    \   │   /</span><br><span class="line">     \  │  /</span><br><span class="line">      \ │ /</span><br><span class="line">       ┼────────→ α轴</span><br><span class="line">      / │ \</span><br><span class="line">     /  │  \</span><br><span class="line">    /   │   \</span><br><span class="line">U4(011)/    │U1(100)</span><br><span class="line">        │</span><br></pre></td></tr></table></figure>
+<p>六个基本矢量将平面分为6个扇区：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">        扇区3</span><br><span class="line">    ┌───────────┐</span><br><span class="line">    │           │</span><br><span class="line">扇区2│     │     │扇区4</span><br><span class="line">    │     ●     │</span><br><span class="line">    │           │</span><br><span class="line">    └───────────┘</span><br><span class="line">        扇区6   扇区5        扇区1</span><br></pre></td></tr></table></figure>
+<h4 id="4-3-2-基本矢量坐标"><a href="#4-3-2-基本矢量坐标" class="headerlink" title="4.3.2 基本矢量坐标"></a>4.3.2 基本矢量坐标</h4><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>矢量</th>
+<th>开关状态</th>
+<th>Uα</th>
+<th>Uβ</th>
+<th>幅值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>U0</td>
+<td>000</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>U1</td>
+<td>100</td>
+<td>2/3·Vdc</td>
+<td>0</td>
+<td>2/3·Vdc</td>
+</tr>
+<tr>
+<td>U2</td>
+<td>110</td>
+<td>1/3·Vdc</td>
+<td>√3/3·Vdc</td>
+<td>2/3·Vdc</td>
+</tr>
+<tr>
+<td>U3</td>
+<td>010</td>
+<td>-1/3·Vdc</td>
+<td>√3/3·Vdc</td>
+<td>2/3·Vdc</td>
+</tr>
+<tr>
+<td>U4</td>
+<td>011</td>
+<td>-2/3·Vdc</td>
+<td>0</td>
+<td>2/3·Vdc</td>
+</tr>
+<tr>
+<td>U5</td>
+<td>001</td>
+<td>-1/3·Vdc</td>
+<td>-√3/3·Vdc</td>
+<td>2/3·Vdc</td>
+</tr>
+<tr>
+<td>U6</td>
+<td>101</td>
+<td>1/3·Vdc</td>
+<td>-√3/3·Vdc</td>
+<td>2/3·Vdc</td>
+</tr>
+<tr>
+<td>U7</td>
+<td>111</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>重要结论</strong>：所有基本矢量幅值相等 = 2/3·Vdc</p>
+<h3 id="4-4-SVPWM算法推导"><a href="#4-4-SVPWM算法推导" class="headerlink" title="4.4 SVPWM算法推导"></a>4.4 SVPWM算法推导</h3><h4 id="4-4-1-目标"><a href="#4-4-1-目标" class="headerlink" title="4.4.1 目标"></a>4.4.1 目标</h4><p>给定任意目标电压矢量 Uref，求：</p>
+<ol>
+<li>所在扇区</li>
+<li>相邻两个基本矢量的作用时间</li>
+<li>零矢量作用时间</li>
+</ol>
+<h4 id="4-4-2-扇区判断"><a href="#4-4-2-扇区判断" class="headerlink" title="4.4.2 扇区判断"></a>4.4.2 扇区判断</h4><p>计算中间变量：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">V1 = Uβ</span><br><span class="line">V2 = (√3·Uα - Uβ) / 2</span><br><span class="line">V3 = (-√3·Uα - Uβ) / 2</span><br></pre></td></tr></table></figure></p>
+<p>扇区判断：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sector = 1 + sign(V1) + 2·sign(V2) + 4·sign(V3)</span><br></pre></td></tr></table></figure></p>
+<p>其中：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sign(x) = &#123; 1,  x ≥ 0</span><br><span class="line">         &#123; 0,  x &lt; 0</span><br></pre></td></tr></table></figure></p>
+<p><strong>简化判断（使用角度）</strong>：<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sector = <span class="built_in">floor</span>(angle / (π/<span class="number">3</span>)) + <span class="number">1</span>;</span><br></pre></td></tr></table></figure></p>
+<h4 id="4-4-3-作用时间计算"><a href="#4-4-3-作用时间计算" class="headerlink" title="4.4.3 作用时间计算"></a>4.4.3 作用时间计算</h4><p>在扇区I中，目标矢量由U1和U2合成：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Uref = (T1/Tpwm)·U1 + (T2/Tpwm)·U2 + (T0/Tpwm)·U0</span><br></pre></td></tr></table></figure>
+<p>约束条件：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">T1 + T2 + T0 = Tpwm</span><br></pre></td></tr></table></figure></p>
+<p>在α-β坐标系分解：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Uα·Tpwm = T1·|U1| + T2·|U2|·cos(60°)</span><br><span class="line">Uβ·Tpwm = T2·|U2|·sin(60°)</span><br></pre></td></tr></table></figure></p>
+<p>解得：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">T1 = √3·Tpwm·(Uα/Vdc - Uβ/(√3·Vdc))</span><br><span class="line">T2 = 2·Tpwm·(Uβ/(√3·Vdc))</span><br><span class="line">T0 = Tpwm - T1 - T2</span><br></pre></td></tr></table></figure></p>
+<p><strong>通用公式（适用于所有扇区）</strong>：</p>
+<p>定义归一化时间：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">T1 = √3·sin(θk·π/3 - θ)·(|Uref|/Vdc)·Tpwm</span><br><span class="line">T2 = √3·sin(θ - (θk-1)·π/3)·(|Uref|/Vdc)·Tpwm</span><br></pre></td></tr></table></figure></p>
+<p>其中：</p>
+<ul>
+<li>θk：扇区结束角度</li>
+<li>θ：目标电压角度</li>
+<li>|Uref|：目标电压幅值</li>
+</ul>
+<h3 id="4-5-七段式SVPWM"><a href="#4-5-七段式SVPWM" class="headerlink" title="4.5 七段式SVPWM"></a>4.5 七段式SVPWM</h3><h4 id="4-5-1-为什么用七段式？"><a href="#4-5-1-为什么用七段式？" class="headerlink" title="4.5.1 为什么用七段式？"></a>4.5.1 为什么用七段式？</h4><p><strong>目标</strong>：减少开关损耗，使每次只切换一相</p>
+<h4 id="4-5-2-扇区I的七段式"><a href="#4-5-2-扇区I的七段式" class="headerlink" title="4.5.2 扇区I的七段式"></a>4.5.2 扇区I的七段式</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">时间轴:  0   T0/4   T0/4+T1/2   T0/4+T1/2+T2   Tpwm</span><br><span class="line">         │    │        │           │            │</span><br><span class="line">         │    │        │           │            │</span><br><span class="line">状态:    U0   U1      U2          U7           U0</span><br><span class="line">         │    │        │           │            │</span><br><span class="line">         000  100     110         111          000</span><br><span class="line"></span><br><span class="line">开关次数: 0    1       2           3            4</span><br></pre></td></tr></table></figure>
+<p><strong>各相状态</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">U0(000)  U1(100)  U2(110)  U7(111)</span><br><span class="line">A:   0   →   1   →   1   →   1   →   0</span><br><span class="line">B:   0   →   0   →   1   →   1   →   0</span><br><span class="line">C:   0   →   0   →   0   →   1   →   0</span><br></pre></td></tr></table></figure>
+<h4 id="4-5-3-扇区I的占空比计算"><a href="#4-5-3-扇区I的占空比计算" class="headerlink" title="4.5.3 扇区I的占空比计算"></a>4.5.3 扇区I的占空比计算</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Ta = T1 + T2 + T0/4</span><br><span class="line">Tb = T2 + T0/4</span><br><span class="line">Tc = T0/4</span><br></pre></td></tr></table></figure>
+<p><strong>归一化到[0,1]</strong>：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Da = Ta / Tpwm</span><br><span class="line">Db = Tb / Tpwm</span><br><span class="line">Dc = Tc / Tpwm</span><br></pre></td></tr></table></figure></p>
+<h4 id="4-5-6-各扇区占空比表"><a href="#4-5-6-各扇区占空比表" class="headerlink" title="4.5.6 各扇区占空比表"></a>4.5.6 各扇区占空比表</h4><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>扇区</th>
+<th>Ta</th>
+<th>Tb</th>
+<th>Tc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>I(0°~60°)</td>
+<td>T1+T2+T0/2</td>
+<td>T2+T0/2</td>
+<td>T0/2</td>
+</tr>
+<tr>
+<td>II(60°~120°)</td>
+<td>T1+T0/2</td>
+<td>T1+T2+T0/2</td>
+<td>T0/2</td>
+</tr>
+<tr>
+<td>III(120°~180°)</td>
+<td>T0/2</td>
+<td>T1+T2+T0/2</td>
+<td>T2+T0/2</td>
+</tr>
+<tr>
+<td>IV(180°~240°)</td>
+<td>T0/2</td>
+<td>T1+T0/2</td>
+<td>T1+T2+T0/2</td>
+</tr>
+<tr>
+<td>V(240°~300°)</td>
+<td>T2+T0/2</td>
+<td>T0/2</td>
+<td>T1+T2+T0/2</td>
+</tr>
+<tr>
+<td>VI(300°~360°)</td>
+<td>T1+T2+T0/2</td>
+<td>T0/2</td>
+<td>T1+T0/2</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="4-6-SVPWM代码实现"><a href="#4-6-SVPWM代码实现" class="headerlink" title="4.6 SVPWM代码实现"></a>4.6 SVPWM代码实现</h3><h4 id="4-6-1-完整代码（带详细注释）"><a href="#4-6-1-完整代码（带详细注释）" class="headerlink" title="4.6.1 完整代码（带详细注释）"></a>4.6.1 完整代码（带详细注释）</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// DengFOC.cpp</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">M0_setTorque</span><span class="params">(<span class="type">float</span> Uq, <span class="type">float</span> Ud, <span class="type">float</span> angle_el)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤1：保存电压值</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  Cur_vol_M<span class="number">0.</span>Uq = Uq;</span><br><span class="line">  Cur_vol_M<span class="number">0.</span>Ud = Ud;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤2：计算合成电压矢量的幅值和角度</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line"></span><br><span class="line">  <span class="type">float</span> Uout;  <span class="comment">// 电压幅值（归一化）</span></span><br><span class="line">  <span class="type">float</span> voltage_angle;  <span class="comment">// 电压矢量角度</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (Ud != <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// 如果有d轴电压，计算合成矢量</span></span><br><span class="line">    <span class="comment">// |U| = √(Ud² + Uq²)</span></span><br><span class="line">    Uout = _sqrt(Ud * Ud + Uq * Uq) / voltage_power_supply;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 合成矢量角度 = 原始角度 + atan2(Uq, Ud)</span></span><br><span class="line">    voltage_angle = _normalizeAngle(angle_el + <span class="built_in">atan2</span>(Uq, Ud));</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// 如果Ud=0，只有q轴电压（常见情况）</span></span><br><span class="line">    Uout = Uq / voltage_power_supply;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// q轴电压超前d轴90°</span></span><br><span class="line">    voltage_angle = _normalizeAngle(angle_el + _PI_2);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤3：确定扇区</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 将[0, 2π]分为6个扇区，每个扇区60°(π/3)</span></span><br><span class="line">  <span class="type">int</span> sector = <span class="built_in">floor</span>(voltage_angle / _PI_3) + <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤4：计算相邻矢量的作用时间</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// T1: 第一个基本矢量作用时间</span></span><br><span class="line">  <span class="comment">// T2: 第二个基本矢量作用时间</span></span><br><span class="line">  <span class="comment">// T0: 零矢量作用时间</span></span><br><span class="line"></span><br><span class="line">  <span class="type">float</span> T1 = _SQRT3 * <span class="built_in">sin</span>(sector * _PI_3 - voltage_angle) * Uout;</span><br><span class="line">  <span class="type">float</span> T2 = _SQRT3 * <span class="built_in">sin</span>(voltage_angle - (sector - <span class="number">1.0f</span>) * _PI_3) * Uout;</span><br><span class="line">  <span class="type">float</span> T0 = <span class="number">1</span> - T1 - T2;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤5：根据扇区分配各相占空比</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line"></span><br><span class="line">  <span class="type">float</span> Ta, Tb, Tc;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">switch</span> (sector) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="number">1</span>:  <span class="comment">// 扇区I: U1(100)和U2(110)</span></span><br><span class="line">      Ta = T1 + T2 + T0 / <span class="number">2</span>;  <span class="comment">// A相作用时间最长</span></span><br><span class="line">      Tb = T2 + T0 / <span class="number">2</span>;       <span class="comment">// B相次之</span></span><br><span class="line">      Tc = T0 / <span class="number">2</span>;            <span class="comment">// C相最短（零矢量）</span></span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> <span class="number">2</span>:  <span class="comment">// 扇区II: U3(010)和U2(110)</span></span><br><span class="line">      Ta = T1 + T0 / <span class="number">2</span>;</span><br><span class="line">      Tb = T1 + T2 + T0 / <span class="number">2</span>;  <span class="comment">// B相作用时间最长</span></span><br><span class="line">      Tc = T0 / <span class="number">2</span>;</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> <span class="number">3</span>:  <span class="comment">// 扇区III: U3(010)和U4(011)</span></span><br><span class="line">      Ta = T0 / <span class="number">2</span>;</span><br><span class="line">      Tb = T1 + T2 + T0 / <span class="number">2</span>;  <span class="comment">// B相作用时间最长</span></span><br><span class="line">      Tc = T2 + T0 / <span class="number">2</span>;</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> <span class="number">4</span>:  <span class="comment">// 扇区IV: U5(001)和U4(011)</span></span><br><span class="line">      Ta = T0 / <span class="number">2</span>;</span><br><span class="line">      Tb = T1 + T0 / <span class="number">2</span>;</span><br><span class="line">      Tc = T1 + T2 + T0 / <span class="number">2</span>;  <span class="comment">// C相作用时间最长</span></span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> <span class="number">5</span>:  <span class="comment">// 扇区V: U5(001)和U6(101)</span></span><br><span class="line">      Ta = T2 + T0 / <span class="number">2</span>;</span><br><span class="line">      Tb = T0 / <span class="number">2</span>;</span><br><span class="line">      Tc = T1 + T2 + T0 / <span class="number">2</span>;  <span class="comment">// C相作用时间最长</span></span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> <span class="number">6</span>:  <span class="comment">// 扇区VI: U1(100)和U6(101)</span></span><br><span class="line">      Ta = T1 + T2 + T0 / <span class="number">2</span>;  <span class="comment">// A相作用时间最长</span></span><br><span class="line">      Tb = T0 / <span class="number">2</span>;</span><br><span class="line">      Tc = T1 + T0 / <span class="number">2</span>;</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">default</span>:  <span class="comment">// 异常情况</span></span><br><span class="line">      Ta = <span class="number">0</span>;</span><br><span class="line">      Tb = <span class="number">0</span>;</span><br><span class="line">      Tc = <span class="number">0</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤6：转换为实际电压值</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line"></span><br><span class="line">  <span class="type">float</span> Ua = Ta * voltage_power_supply;</span><br><span class="line">  <span class="type">float</span> Ub = Tb * voltage_power_supply;</span><br><span class="line">  <span class="type">float</span> Uc = Tc * voltage_power_supply;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤7：输出PWM</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">M0_setPwm</span>(Ua, Ub, Uc);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="4-6-2-PWM输出函数"><a href="#4-6-2-PWM输出函数" class="headerlink" title="4.6.2 PWM输出函数"></a>4.6.2 PWM输出函数</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// DengFOC.cpp</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">M0_setPwm</span><span class="params">(<span class="type">float</span> Ua, <span class="type">float</span> Ub, <span class="type">float</span> Uc)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤1：限幅</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line"></span><br><span class="line">  Ua = _constrain(Ua, <span class="number">0.0f</span>, voltage_power_supply);</span><br><span class="line">  Ub = _constrain(Ub, <span class="number">0.0f</span>, voltage_power_supply);</span><br><span class="line">  Uc = _constrain(Uc, <span class="number">0.0f</span>, voltage_power_supply);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤2：计算占空比</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line"></span><br><span class="line">  <span class="type">float</span> dc_a = _constrain(Ua / voltage_power_supply, <span class="number">0.0f</span>, <span class="number">1.0f</span>);</span><br><span class="line">  <span class="type">float</span> dc_b = _constrain(Ub / voltage_power_supply, <span class="number">0.0f</span>, <span class="number">1.0f</span>);</span><br><span class="line">  <span class="type">float</span> dc_c = _constrain(Uc / voltage_power_supply, <span class="number">0.0f</span>, <span class="number">1.0f</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line">  <span class="comment">// 步骤3：写入PWM寄存器</span></span><br><span class="line">  <span class="comment">// ============================================================</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">ledcWrite</span>(<span class="number">0</span>, dc_a * <span class="number">255</span>);  <span class="comment">// A相PWM，通道0</span></span><br><span class="line">  <span class="built_in">ledcWrite</span>(<span class="number">1</span>, dc_b * <span class="number">255</span>);  <span class="comment">// B相PWM，通道1</span></span><br><span class="line">  <span class="built_in">ledcWrite</span>(<span class="number">2</span>, dc_c * <span class="number">255</span>);  <span class="comment">// C相PWM，通道2</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="4-7-SVPWM详细图解"><a href="#4-7-SVPWM详细图解" class="headerlink" title="4.7 SVPWM详细图解"></a>4.7 SVPWM详细图解</h3><h4 id="4-7-1-电压矢量合成（扇区I为例）"><a href="#4-7-1-电压矢量合成（扇区I为例）" class="headerlink" title="4.7.1 电压矢量合成（扇区I为例）"></a>4.7.1 电压矢量合成（扇区I为例）</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">                    β轴</span><br><span class="line">                      ↑</span><br><span class="line">                      │</span><br><span class="line">                      │</span><br><span class="line">                      │</span><br><span class="line">              U3(010) │    U2(110)</span><br><span class="line">                 \    │    /</span><br><span class="line">                  \   │   /</span><br><span class="line">                   \  │  /</span><br><span class="line">                    \ │ /</span><br><span class="line">            U4───────┼─────────U1(100)</span><br><span class="line">          (011)      / │ \</span><br><span class="line">                    /  │  \</span><br><span class="line">                   /   │   \</span><br><span class="line">                  /    │    \</span><br><span class="line">            U5(001)/     │     \ U6(101)</span><br><span class="line">                      │</span><br><span class="line">                      │</span><br><span class="line">        ◉─────────────┼─────────────→ α轴</span><br><span class="line">       Uref           │</span><br><span class="line">                      │</span><br><span class="line"></span><br><span class="line">目标矢量Uref在扇区I，由U1和U2合成：</span><br><span class="line"></span><br><span class="line">Uref = (T1/Tpwm)·U1 + (T2/Tpwm)·U2</span><br></pre></td></tr></table></figure>
+<h4 id="4-7-2-七段式开关序列（扇区I）"><a href="#4-7-2-七段式开关序列（扇区I）" class="headerlink" title="4.7.2 七段式开关序列（扇区I）"></a>4.7.2 七段式开关序列（扇区I）</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">         T0/4      T1/2         T2         T1/2      T0/4</span><br><span class="line">    ←─────────→←──────────→←────────────→←──────────→←─────────→</span><br><span class="line">    ┌──────────┬────────────┬─────────────┬───────────┬──────────┐</span><br><span class="line">    │          │            │             │           │          │</span><br><span class="line">    │    U0    │    U1      │     U2      │    U7     │    U0    │</span><br><span class="line">    │   (000)  │   (100)    │    (110)    │   (111)   │   (000)  │</span><br><span class="line">    │          │            │             │           │          │</span><br><span class="line">    └──────────┴────────────┴─────────────┴───────────┴──────────┘</span><br><span class="line"></span><br><span class="line">A相:  0 ──────── 1 ─────────── 1 ──────────── 1 ───────── 0</span><br><span class="line">B相:  0 ──────── 0 ─────────── 1 ──────────── 1 ───────── 0</span><br><span class="line">C相:  0 ──────── 0 ─────────── 0 ──────────── 1 ───────── 0</span><br><span class="line"></span><br><span class="line">开关次数:    1次        1次           1次          1次</span><br><span class="line"></span><br><span class="line">总开关次数: 4次（最小）</span><br></pre></td></tr></table></figure>
+<h3 id="4-8-SVPWM与SPWM对比"><a href="#4-8-SVPWM与SPWM对比" class="headerlink" title="4.8 SVPWM与SPWM对比"></a>4.8 SVPWM与SPWM对比</h3><h4 id="4-8-1-电压利用率"><a href="#4-8-1-电压利用率" class="headerlink" title="4.8.1 电压利用率"></a>4.8.1 电压利用率</h4><p><strong>SPWM</strong>：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">最大相电压幅值 = Vdc/2</span><br><span class="line">最大线电压幅值 = √3·Vdc/2 ≈ 0.866·Vdc</span><br></pre></td></tr></table></figure></p>
+<p><strong>SVPWM</strong>：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">最大相电压幅值 = Vdc/√3</span><br><span class="line">最大线电压幅值 = Vdc</span><br></pre></td></tr></table></figure></p>
+<p><strong>结论</strong>：SVPWM电压利用率高约15.5%</p>
+<h4 id="4-8-2-谐波特性"><a href="#4-8-2-谐波特性" class="headerlink" title="4.8.2 谐波特性"></a>4.8.2 谐波特性</h4><p><strong>SPWM</strong>：谐波集中在载波频率附近<br><strong>SVPWM</strong>：谐波分布更均匀，幅值更小</p>
+<h4 id="4-8-3-实现复杂度"><a href="#4-8-3-实现复杂度" class="headerlink" title="4.8.3 实现复杂度"></a>4.8.3 实现复杂度</h4><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>计算量</th>
+<th>存储需求</th>
+<th>实时性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SPWM</td>
+<td>小</td>
+<td>小</td>
+<td>好</td>
+</tr>
+<tr>
+<td>SVPWM</td>
+<td>中</td>
+<td>中</td>
+<td>中</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="5-代码架构分析"><a href="#5-代码架构分析" class="headerlink" title="5. 代码架构分析"></a>5. 代码架构分析</h2><h3 id="5-1-文件结构"><a href="#5-1-文件结构" class="headerlink" title="5.1 文件结构"></a>5.1 文件结构</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">DengFOC_SMO_full_control/</span><br><span class="line">├── DengFOC_SMO_full_control.ino    # 主程序入口</span><br><span class="line">├── DengFOC.h/cpp                   # FOC核心控制</span><br><span class="line">├── SMO.h/cpp                       # ⭐滑模观测器</span><br><span class="line">├── InlineCurrent.h/cpp             # 电流采样</span><br><span class="line">├── pid.h/cpp                       # PID控制器</span><br><span class="line">├── lowpass_filter.h/cpp            # 低通滤波</span><br><span class="line">└── AS5600.h/cpp                    # 编码器（调试用）</span><br></pre></td></tr></table></figure>
+<h3 id="5-2-主程序流程"><a href="#5-2-主程序流程" class="headerlink" title="5.2 主程序流程"></a>5.2 主程序流程</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// .ino</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">loop</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// ========== 核心FOC循环 ==========</span></span><br><span class="line">  <span class="built_in">runFOC</span>();  <span class="comment">// 采样电流 → Clarke变换 → SMO估算 → Park变换</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== VF启动 ==========</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">VF_start</span>(<span class="number">0</span>, CCW) == <span class="number">1</span>) &#123;</span><br><span class="line">    <span class="comment">// 启动完成，进入闭环控制</span></span><br><span class="line">    <span class="built_in">DFOC_M0_SMO_CUR_setSpeed</span>(<span class="built_in">serial_motor_target</span>());</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ========== 接收串口命令 ==========</span></span><br><span class="line">  <span class="built_in">serialReceiveUserCommand</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="5-3-runFOC核心循环详解"><a href="#5-3-runFOC核心循环详解" class="headerlink" title="5.3 runFOC核心循环详解"></a>5.3 runFOC核心循环详解</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// DengFOC.cpp</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">runFOC</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// ========== 步骤1：采样电流 ==========</span></span><br><span class="line">  CS_M<span class="number">0.</span><span class="built_in">getPhaseCurrents</span>();  <span class="comment">// 读取Ia, Ib</span></span><br><span class="line">  CS_M<span class="number">1.</span><span class="built_in">getPhaseCurrents</span>();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (ctrl_mode == SENSELESS) &#123;</span><br><span class="line">    <span class="comment">// ========== 步骤2：无感模式 ==========</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.1 Clarke变换: ABC → αβ</span></span><br><span class="line">    Cur_vol_M0 = <span class="built_in">cal_Iq_Id</span>(CS_M<span class="number">0.</span>current_a, CS_M<span class="number">0.</span>current_b, SMO_M<span class="number">0.</span>Est_Theta);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.2 Park变换: αβ → dq (使用估算角度)</span></span><br><span class="line">    <span class="comment">// 在cal_Iq_Id中完成</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.3 滑模观测器更新</span></span><br><span class="line">    SMO_M<span class="number">0.</span><span class="built_in">SMO_closeloop</span>(Cur_vol_M0);  <span class="comment">// 输出新的Est_Theta</span></span><br><span class="line"></span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// ========== 步骤3：有感模式 ==========</span></span><br><span class="line">    Cur_vol_M0 = <span class="built_in">cal_Iq_Id</span>(CS_M<span class="number">0.</span>current_a, CS_M<span class="number">0.</span>current_b, <span class="built_in">S0_electricalAngle</span>());</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="6-核心模块详解"><a href="#6-核心模块详解" class="headerlink" title="6. 核心模块详解"></a>6. 核心模块详解</h2><h3 id="6-1-坐标变换模块"><a href="#6-1-坐标变换模块" class="headerlink" title="6.1 坐标变换模块"></a>6.1 坐标变换模块</h3><h4 id="Clarke变换（ABC-→-αβ）"><a href="#Clarke变换（ABC-→-αβ）" class="headerlink" title="Clarke变换（ABC → αβ）"></a>Clarke变换（ABC → αβ）</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// DengFOC.cpp</span></span><br><span class="line"><span class="function">Cur_vol_s <span class="title">cal_Iq_Id</span><span class="params">(<span class="type">float</span> current_a, <span class="type">float</span> current_b, <span class="type">float</span> angle_el)</span> </span>&#123;</span><br><span class="line">  Cur_vol_s r_Cur_vol;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Clarke变换</span></span><br><span class="line">  r_Cur_vol.I_alpha = current_a;                              <span class="comment">// Iα = Ia</span></span><br><span class="line">  r_Cur_vol.I_beta = _1_SQRT3 * current_a + _2_SQRT3 * current_b;  <span class="comment">// Iβ = (Ia+2Ib)/√3</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// Park变换</span></span><br><span class="line">  <span class="type">float</span> ct = <span class="built_in">cos</span>(angle_el);</span><br><span class="line">  <span class="type">float</span> st = <span class="built_in">sin</span>(angle_el);</span><br><span class="line">  r_Cur_vol.I_d = r_Cur_vol.I_alpha * ct + r_Cur_vol.I_beta * st;  <span class="comment">// Id = Iα·cos(θ) + Iβ·sin(θ)</span></span><br><span class="line">  r_Cur_vol.I_q = r_Cur_vol.I_beta * ct - r_Cur_vol.I_alpha * st;  <span class="comment">// Iq = Iβ·cos(θ) - Iα·sin(θ)</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> r_Cur_vol;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="6-2-电流采样模块"><a href="#6-2-电流采样模块" class="headerlink" title="6.2 电流采样模块"></a>6.2 电流采样模块</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// InlineCurrent.cpp</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">CurrSense::getPhaseCurrents</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 读取ADC并转换为电压</span></span><br><span class="line">  <span class="type">float</span> voltage_a = <span class="built_in">readADCVoltageInline</span>(pinA);</span><br><span class="line">  <span class="type">float</span> voltage_b = <span class="built_in">readADCVoltageInline</span>(pinB);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 减去零点偏移并转换为电流</span></span><br><span class="line">  current_a = (voltage_a - offset_ia) * gain_a;</span><br><span class="line">  current_b = (voltage_b - offset_ib) * gain_b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="6-3-PID控制模块"><a href="#6-3-PID控制模块" class="headerlink" title="6.3 PID控制模块"></a>6.3 PID控制模块</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// pid.cpp</span></span><br><span class="line"><span class="function"><span class="type">float</span> <span class="title">PIDController::operator</span><span class="params">()</span><span class="params">(<span class="type">float</span> error)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 计算时间间隔</span></span><br><span class="line">  <span class="type">float</span> Ts = (timestamp_now - timestamp_prev) * <span class="number">1e-6f</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// P项</span></span><br><span class="line">  <span class="type">float</span> proportional = P * error;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// I项（梯形积分）</span></span><br><span class="line">  <span class="type">float</span> integral = integral_prev + I * Ts * <span class="number">0.5f</span> * (error + error_prev);</span><br><span class="line">  integral = _constrain(integral, -limit, limit);  <span class="comment">// 抗饱和</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// D项</span></span><br><span class="line">  <span class="type">float</span> derivative = D * (error - error_prev) / Ts;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 输出</span></span><br><span class="line">  <span class="type">float</span> output = proportional + integral + derivative;</span><br><span class="line">  output = _constrain(output, -limit, limit);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> output;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="7-调参指南"><a href="#7-调参指南" class="headerlink" title="7. 调参指南"></a>7. 调参指南</h2><h3 id="7-1-电机参数测量"><a href="#7-1-电机参数测量" class="headerlink" title="7.1 电机参数测量"></a>7.1 电机参数测量</h3><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>测量方法</th>
+<th>典型值(2208)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rs</td>
+<td>万用表测两相/2</td>
+<td>8.25Ω</td>
+</tr>
+<tr>
+<td>Ls</td>
+<td>电桥表测两相/2</td>
+<td>4.256mH</td>
+</tr>
+<tr>
+<td>极对数</td>
+<td>查规格书或实测</td>
+<td>7</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="7-2-SMO参数调试"><a href="#7-2-SMO参数调试" class="headerlink" title="7.2 SMO参数调试"></a>7.2 SMO参数调试</h3><h4 id="滑模增益h"><a href="#滑模增益h" class="headerlink" title="滑模增益h"></a>滑模增益h</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">现象：电机不转</span><br><span class="line">→ 增大h（×1.5）</span><br><span class="line"></span><br><span class="line">现象：高频噪音</span><br><span class="line">→ 减小h（×0.8）</span><br></pre></td></tr></table></figure>
+<h4 id="PLL参数"><a href="#PLL参数" class="headerlink" title="PLL参数"></a>PLL参数</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">// 经验公式</span><br><span class="line">Ki = ωn² (ωn = 200~500)</span><br><span class="line">Kp = 2·ζ·√Ki (ζ = 0.707)</span><br><span class="line"></span><br><span class="line">// 示例</span><br><span class="line">Ki = 40000</span><br><span class="line">Kp = 521</span><br></pre></td></tr></table></figure>
+<h3 id="7-3-完整调参流程"><a href="#7-3-完整调参流程" class="headerlink" title="7.3 完整调参流程"></a>7.3 完整调参流程</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">1. 硬件检查</span><br><span class="line">   ├─ 确认相序</span><br><span class="line">   ├─ 确认电流采样方向</span><br><span class="line">   └─ 确认PWM输出</span><br><span class="line"></span><br><span class="line">2. 有感测试</span><br><span class="line">   ├─ 切换到SENSE模式</span><br><span class="line">   ├─ 校准编码器</span><br><span class="line">   └─ 验证电机能正常转动</span><br><span class="line"></span><br><span class="line">3. SMO参数调试</span><br><span class="line">   ├─ 设置h=0.3</span><br><span class="line">   ├─ 设置PLL_kp=521, PLL_ki=40000</span><br><span class="line">   ├─ 调试h直到稳定</span><br><span class="line">   └─ 微调PLL参数</span><br><span class="line"></span><br><span class="line">4. 电流环调试</span><br><span class="line">   ├─ P=1~3, I=100~300</span><br><span class="line">   └─ 增大P到震荡点×0.5</span><br><span class="line"></span><br><span class="line">5. 速度环调试</span><br><span class="line">   ├─ P=0.02, I=0.5</span><br><span class="line">   └─ 根据响应调整</span><br><span class="line"></span><br><span class="line">6. VF启动调试</span><br><span class="line">   ├─ 调整加速度VF_acc</span><br><span class="line">   ├─ 调整最大速度VF_max_vel</span><br><span class="line">   └─ 调整电压增量VF_uq_delta</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="8-常见问题与调试"><a href="#8-常见问题与调试" class="headerlink" title="8. 常见问题与调试"></a>8. 常见问题与调试</h2><h3 id="8-1-问题诊断表"><a href="#8-1-问题诊断表" class="headerlink" title="8.1 问题诊断表"></a>8.1 问题诊断表</h3><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>可能原因</th>
+<th>排查方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>电机不转</td>
+<td>h太小</td>
+<td>增大h到1.0测试</td>
+</tr>
+<tr>
+<td>抖动严重</td>
+<td>PLL参数</td>
+<td>减小PLL_kp</td>
+</tr>
+<tr>
+<td>只能单向</td>
+<td>_dir错误</td>
+<td>检查方向设置</td>
+</tr>
+<tr>
+<td>启动失败</td>
+<td>VF参数</td>
+<td>减小VF_acc</td>
+</tr>
+<tr>
+<td>角度漂移</td>
+<td>滤波太强</td>
+<td>减小滤波系数</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="8-2-调试技巧"><a href="#8-2-调试技巧" class="headerlink" title="8.2 调试技巧"></a>8.2 调试技巧</h3><h4 id="串口监控"><a href="#串口监控" class="headerlink" title="串口监控"></a>串口监控</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Serial.<span class="built_in">printf</span>(<span class="string">&quot;Est_Theta=%.2f, Real_Theta=%.2f, Iq=%.2f, speed=%.2f\n&quot;</span>,</span><br><span class="line">  SMO_M<span class="number">0.</span>Est_Theta, <span class="built_in">S0_electricalAngle</span>(),</span><br><span class="line">  <span class="built_in">DFOC_M0_Current</span>(), SMO_M<span class="number">0.</span>Est_speed);</span><br></pre></td></tr></table></figure>
+<h4 id="使用串口绘图器"><a href="#使用串口绘图器" class="headerlink" title="使用串口绘图器"></a>使用串口绘图器</h4><p>Arduino IDE → 工具 → 串口绘图器</p>
+<hr>
+<h2 id="附录A：重要公式汇总"><a href="#附录A：重要公式汇总" class="headerlink" title="附录A：重要公式汇总"></a>附录A：重要公式汇总</h2><h3 id="A-1-电机模型"><a href="#A-1-电机模型" class="headerlink" title="A.1 电机模型"></a>A.1 电机模型</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Uα = Rs·Iα + Ls·(dIα/dt) + Eα</span><br><span class="line">Uβ = Rs·Iβ + Ls·(dIβ/dt) + Eβ</span><br><span class="line"></span><br><span class="line">Eα = -Ke·ω·sin(θ)</span><br><span class="line">Eβ = Ke·ω·cos(θ)</span><br></pre></td></tr></table></figure>
+<h3 id="A-2-滑模观测器"><a href="#A-2-滑模观测器" class="headerlink" title="A.2 滑模观测器"></a>A.2 滑模观测器</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">dÎα/dt = -(Rs/Ls)·Îα + (1/Ls)·(Uα - Êα)</span><br><span class="line">dÎβ/dt = -(Rs/Ls)·Îβ + (1/Ls)·(Uβ - Êβ)</span><br><span class="line"></span><br><span class="line">sα = Îα - Iα</span><br><span class="line">sβ = Îβ - Iβ</span><br><span class="line"></span><br><span class="line">Êα = h·sat(sα)</span><br><span class="line">Êβ = h·sat(sβ)</span><br></pre></td></tr></table></figure>
+<h3 id="A-3-PLL"><a href="#A-3-PLL" class="headerlink" title="A.3 PLL"></a>A.3 PLL</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">θe = -Eα·cos(θ̂) - Eβ·sin(θ̂)</span><br><span class="line">ω̂ = Kp·θe + Ki·∫θe·dt</span><br><span class="line">θ̂ = ∫ω̂·dt</span><br><span class="line"></span><br><span class="line">Ki = ωn²</span><br><span class="line">Kp = 2·ζ·ωn</span><br></pre></td></tr></table></figure>
+<h3 id="A-4-SVPWM"><a href="#A-4-SVPWM" class="headerlink" title="A.4 SVPWM"></a>A.4 SVPWM</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">T1 = √3·sin(θk·π/3 - θ)·(|Uref|/Vdc)·Tpwm</span><br><span class="line">T2 = √3·sin(θ - (θk-1)·π/3)·(|Uref|/Vdc)·Tpwm</span><br><span class="line">T0 = Tpwm - T1 - T2</span><br></pre></td></tr></table></figure>
+<hr>
+<p><strong>文档版本</strong>：v2.0<br><strong>最后更新</strong>：2025年<br><strong>适用硬件</strong>：DengFOC V4<br><strong>原作者</strong>：灯哥开源<br><strong>文档整理</strong>：深度学习版</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://chulwa.github.io">隼</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://chulwa.github.io/2026/03/15/%E6%97%A0%E6%84%9FFOC%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/">https://chulwa.github.io/2026/03/15/%E6%97%A0%E6%84%9FFOC%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://chulwa.github.io" target="_blank">嵌入式笔记</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/FOC/">FOC</a><a class="post-meta__tags" href="/tags/%E7%94%B5%E6%9C%BA%E6%8E%A7%E5%88%B6/">电机控制</a><a class="post-meta__tags" href="/tags/ESP32/">ESP32</a></div><div class="post-share"><div class="social-share" data-image="/img/author-avatar.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://unpkg.com/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://unpkg.com/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/03/15/SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90%E6%96%87%E6%A1%A3/" title="SMO滑模观测器代码解析文档"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">SMO滑模观测器代码解析文档</div></div><div class="info-2"><div class="info-item-1">ESP32 无感FOC - SMO滑模观测器代码解析文档项目概述本项目是基于ESP32的无感FOC（Field Oriented Control，磁场定向控制）电机控制实现，使用滑模观测器（Sliding Mode Observer, SMO）进行转子位置和速度估算。项目支持双电机控制，采用电流闭环控制方式。 硬件平台 MCU: ESP32 电流采样: 两相采样（A、B相） 位置传感器: AS5600磁编码器（仅用于校准，运行时不使用） 功率级: 三相桥驱动  核心特性 滑模观测器（SMO）无感位置估算 电流闭环FOC控制 双电机支持（M0和M1） 可配置的PID控制器 低通滤波器   文件结构123456784_SMO滑模观测器/├── 4_SMO滑模观测器.ino      # 主程序入口├── DengFOC.h/cpp              # FOC核心控制库├── InlineCurrent.h/cpp        # 电流采样模块├── AS5600.h/cpp               # AS5600编码器驱动（校准用）├── lowpass_filte...</div></div></div></a><a class="pagination-related" href="/2026/03/15/%E6%97%A0%E6%84%9FFOC%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/" title="无感FOC详细学习文档"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">无感FOC详细学习文档</div></div><div class="info-2"><div class="info-item-1">ESP32无感滑模FOC详细学习文档 基于灯哥DengFOC V4例程4：无感滑模完整控制例程适合2208电机空载情况，其他电机需要自行调整参数   目录 无感FOC基础理论 滑模观测器(SMO)原理 代码架构分析 核心模块详解 调参指南 常见问题与调试   1. 无感FOC基础理论1.1 什么是无感FOC？FOC（Field Oriented Control，磁场定向控制）是一种高效的电机控制方法。无感FOC是指不使用位置传感器（如编码器、霍尔传感器），而是通过观测器算法估算转子位置和速度的控制方式。 1.2 为什么需要无感FOC？    有感FOC 无感FOC     需要额外传感器 无需传感器，成本低   启动可靠 启动需要特殊处理   位置精度高 位置有估算误差   适合高精度应用 适合成本敏感应用     1.3 PMSM电机数学模型无感FOC的核心是利用电机的反电动势来估算转子位置。 电压方程（α-β坐标系）12Uα = Rs·Iα + Ls·(dIα/dt) + EαUβ = Rs·Iβ + Ls·(dIβ/dt) + Eβ 其中：  Uα, Uβ：定子电压 Iα,...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/03/15/%E6%97%A0%E6%84%9FFOC%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/" title="无感FOC详细学习文档"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-03-15</div><div class="info-item-2">无感FOC详细学习文档</div></div><div class="info-2"><div class="info-item-1">ESP32无感滑模FOC详细学习文档 基于灯哥DengFOC V4例程4：无感滑模完整控制例程适合2208电机空载情况，其他电机需要自行调整参数   目录 无感FOC基础理论 滑模观测器(SMO)原理 代码架构分析 核心模块详解 调参指南 常见问题与调试   1. 无感FOC基础理论1.1 什么是无感FOC？FOC（Field Oriented Control，磁场定向控制）是一种高效的电机控制方法。无感FOC是指不使用位置传感器（如编码器、霍尔传感器），而是通过观测器算法估算转子位置和速度的控制方式。 1.2 为什么需要无感FOC？    有感FOC 无感FOC     需要额外传感器 无需传感器，成本低   启动可靠 启动需要特殊处理   位置精度高 位置有估算误差   适合高精度应用 适合成本敏感应用     1.3 PMSM电机数学模型无感FOC的核心是利用电机的反电动势来估算转子位置。 电压方程（α-β坐标系）12Uα = Rs·Iα + Ls·(dIα/dt) + EαUβ = Rs·Iβ + Ls·(dIβ/dt) + Eβ 其中：  Uα, Uβ：定子电压 Iα,...</div></div></div></a><a class="pagination-related" href="/2026/03/15/SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90%E6%96%87%E6%A1%A3/" title="SMO滑模观测器代码解析文档"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-03-15</div><div class="info-item-2">SMO滑模观测器代码解析文档</div></div><div class="info-2"><div class="info-item-1">ESP32 无感FOC - SMO滑模观测器代码解析文档项目概述本项目是基于ESP32的无感FOC（Field Oriented Control，磁场定向控制）电机控制实现，使用滑模观测器（Sliding Mode Observer, SMO）进行转子位置和速度估算。项目支持双电机控制，采用电流闭环控制方式。 硬件平台 MCU: ESP32 电流采样: 两相采样（A、B相） 位置传感器: AS5600磁编码器（仅用于校准，运行时不使用） 功率级: 三相桥驱动  核心特性 滑模观测器（SMO）无感位置估算 电流闭环FOC控制 双电机支持（M0和M1） 可配置的PID控制器 低通滤波器   文件结构123456784_SMO滑模观测器/├── 4_SMO滑模观测器.ino      # 主程序入口├── DengFOC.h/cpp              # FOC核心控制库├── InlineCurrent.h/cpp        # 电流采样模块├── AS5600.h/cpp               # AS5600编码器驱动（校准用）├── lowpass_filte...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/author-avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">隼</div><div class="author-info-description">隼。春天并不回答问题，我只负责把波形和情绪记下来。</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">19</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">27</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><a id="card-info-btn" href="/about/"><i class="fas fa-user-pen"></i><span>关于隼</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">这里记录嵌入式、FOC、电力电子，也记录那些没有结论的凌晨。</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#ESP32%E6%97%A0%E6%84%9F%E6%BB%91%E6%A8%A1FOC%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3"><span class="toc-number">1.</span> <span class="toc-text">ESP32无感滑模FOC深度学习文档</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%AE%E5%BD%95"><span class="toc-number">1.1.</span> <span class="toc-text">目录</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E6%97%A0%E6%84%9FFOC%E5%9F%BA%E7%A1%80%E7%90%86%E8%AE%BA"><span class="toc-number">1.2.</span> <span class="toc-text">1. 无感FOC基础理论</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%97%A0%E6%84%9FFOC%EF%BC%9F"><span class="toc-number">1.2.1.</span> <span class="toc-text">1.1 什么是无感FOC？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-PMSM%E7%94%B5%E6%9C%BA%E6%95%B0%E5%AD%A6%E6%A8%A1%E5%9E%8B"><span class="toc-number">1.2.2.</span> <span class="toc-text">1.2 PMSM电机数学模型</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%94%B5%E5%8E%8B%E6%96%B9%E7%A8%8B%EF%BC%88%CE%B1-%CE%B2%E5%9D%90%E6%A0%87%E7%B3%BB%EF%BC%89"><span class="toc-number">1.2.2.1.</span> <span class="toc-text">电压方程（α-β坐标系）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8F%8D%E7%94%B5%E5%8A%A8%E5%8A%BF%E4%B8%8E%E8%BD%AC%E5%AD%90%E4%BD%8D%E7%BD%AE%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="toc-number">1.2.2.2.</span> <span class="toc-text">反电动势与转子位置的关系</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-%E6%97%A0%E6%84%9FFOC%E6%8E%A7%E5%88%B6%E6%A1%86%E5%9B%BE"><span class="toc-number">1.2.3.</span> <span class="toc-text">1.3 无感FOC控制框图</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8-SMO-%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90"><span class="toc-number">1.3.</span> <span class="toc-text">2. 滑模观测器(SMO)深度解析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E6%BB%91%E6%A8%A1%E6%8E%A7%E5%88%B6%E7%90%86%E8%AE%BA%E5%9F%BA%E7%A1%80"><span class="toc-number">1.3.1.</span> <span class="toc-text">2.1 滑模控制理论基础</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%BB%91%E6%A8%A1%E6%8E%A7%E5%88%B6%EF%BC%9F"><span class="toc-number">1.3.1.1.</span> <span class="toc-text">2.1.1 什么是滑模控制？</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-2-%E6%BB%91%E6%A8%A1%E9%9D%A2%E7%9A%84%E7%89%A9%E7%90%86%E6%84%8F%E4%B9%89"><span class="toc-number">1.3.1.2.</span> <span class="toc-text">2.1.2 滑模面的物理意义</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-3-%E6%BB%91%E6%A8%A1%E5%AD%98%E5%9C%A8%E6%9D%A1%E4%BB%B6"><span class="toc-number">1.3.1.3.</span> <span class="toc-text">2.1.3 滑模存在条件</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E5%AE%8C%E6%95%B4%E6%8E%A8%E5%AF%BC"><span class="toc-number">1.3.2.</span> <span class="toc-text">2.2 滑模观测器完整推导</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-1-%E7%94%B5%E6%9C%BA%E6%95%B0%E5%AD%A6%E6%A8%A1%E5%9E%8B%EF%BC%88%E8%BF%9E%E7%BB%AD%E5%9F%9F%EF%BC%89"><span class="toc-number">1.3.2.1.</span> <span class="toc-text">2.2.1 电机数学模型（连续域）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-2-%E6%9E%84%E9%80%A0%E8%A7%82%E6%B5%8B%E5%99%A8"><span class="toc-number">1.3.2.2.</span> <span class="toc-text">2.2.2 构造观测器</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-3-%E5%AE%9A%E4%B9%89%E7%94%B5%E6%B5%81%E8%AF%AF%E5%B7%AE%EF%BC%88%E6%BB%91%E6%A8%A1%E9%9D%A2%EF%BC%89"><span class="toc-number">1.3.2.3.</span> <span class="toc-text">2.2.3 定义电流误差（滑模面）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-4-%E8%AF%AF%E5%B7%AE%E5%8A%A8%E5%8A%9B%E5%AD%A6%E6%96%B9%E7%A8%8B"><span class="toc-number">1.3.2.4.</span> <span class="toc-text">2.2.4 误差动力学方程</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-5-%E8%AE%BE%E8%AE%A1%E6%BB%91%E6%A8%A1%E6%8E%A7%E5%88%B6%E5%BE%8B"><span class="toc-number">1.3.2.5.</span> <span class="toc-text">2.2.5 设计滑模控制律</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-6-%E4%B8%BA%E4%BB%80%E4%B9%88%E6%8E%A7%E5%88%B6%E5%BE%8B%E8%83%BD%E4%BC%B0%E7%AE%97%E5%8F%8D%E7%94%B5%E5%8A%A8%E5%8A%BF%EF%BC%9F"><span class="toc-number">1.3.2.6.</span> <span class="toc-text">2.2.6 为什么控制律能估算反电动势？</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E9%A5%B1%E5%92%8C%E5%87%BD%E6%95%B0-vs-%E7%AC%A6%E5%8F%B7%E5%87%BD%E6%95%B0"><span class="toc-number">1.3.3.</span> <span class="toc-text">2.3 饱和函数 vs 符号函数</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-3-1-%E7%AC%A6%E5%8F%B7%E5%87%BD%E6%95%B0%EF%BC%88%E4%BC%A0%E7%BB%9F%E6%BB%91%E6%A8%A1%EF%BC%89"><span class="toc-number">1.3.3.1.</span> <span class="toc-text">2.3.1 符号函数（传统滑模）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-3-2-%E9%A5%B1%E5%92%8C%E5%87%BD%E6%95%B0%EF%BC%88%E6%94%B9%E8%BF%9B%E6%BB%91%E6%A8%A1%EF%BC%89"><span class="toc-number">1.3.3.2.</span> <span class="toc-text">2.3.2 饱和函数（改进滑模）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-3-3-%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.3.3.3.</span> <span class="toc-text">2.3.3 代码实现</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-%E6%BB%91%E6%A8%A1%E5%A2%9E%E7%9B%8Ah%E7%9A%84%E9%80%89%E6%8B%A9"><span class="toc-number">1.3.4.</span> <span class="toc-text">2.4 滑模增益h的选择</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-4-1-%E7%90%86%E8%AE%BA%E5%88%86%E6%9E%90"><span class="toc-number">1.3.4.1.</span> <span class="toc-text">2.4.1 理论分析</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-4-2-%E5%B7%A5%E7%A8%8B%E7%BB%8F%E9%AA%8C"><span class="toc-number">1.3.4.2.</span> <span class="toc-text">2.4.2 工程经验</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-4-3-h%E5%80%BC%E8%B0%83%E8%AF%95%E6%8A%80%E5%B7%A7"><span class="toc-number">1.3.4.3.</span> <span class="toc-text">2.4.3 h值调试技巧</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-5-%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E5%AE%8C%E6%95%B4%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90"><span class="toc-number">1.3.5.</span> <span class="toc-text">2.5 滑模观测器完整代码解析</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-5-1-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%AE%9A%E4%B9%89"><span class="toc-number">1.3.5.1.</span> <span class="toc-text">2.5.1 数据结构定义</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-5-2-%E6%A0%B8%E5%BF%83%E5%87%BD%E6%95%B01%EF%BC%9A%E6%BB%91%E6%A8%A1%E9%97%AD%E7%8E%AF"><span class="toc-number">1.3.5.2.</span> <span class="toc-text">2.5.2 核心函数1：滑模闭环</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-5-3-%E6%A0%B8%E5%BF%83%E5%87%BD%E6%95%B02%EF%BC%9A%E4%BD%8D%E7%BD%AE%E4%BC%B0%E7%AE%97"><span class="toc-number">1.3.5.3.</span> <span class="toc-text">2.5.3 核心函数2：位置估算</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-5-4-%E6%A0%B8%E5%BF%83%E5%87%BD%E6%95%B03%EF%BC%9A%E9%A5%B1%E5%92%8C%E5%87%BD%E6%95%B0"><span class="toc-number">1.3.5.4.</span> <span class="toc-text">2.5.4 核心函数3：饱和函数</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-6-%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E4%BF%A1%E5%8F%B7%E6%B5%81%E5%9B%BE"><span class="toc-number">1.3.6.</span> <span class="toc-text">2.6 滑模观测器信号流图</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-7-%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E7%A8%B3%E5%AE%9A%E6%80%A7%E5%88%86%E6%9E%90"><span class="toc-number">1.3.7.</span> <span class="toc-text">2.7 滑模观测器稳定性分析</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-7-1-%E6%9D%8E%E9%9B%85%E6%99%AE%E8%AF%BA%E5%A4%AB%E5%87%BD%E6%95%B0"><span class="toc-number">1.3.7.1.</span> <span class="toc-text">2.7.1 李雅普诺夫函数</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-7-2-%E8%83%BD%E9%87%8F%E5%8F%98%E5%8C%96%E7%8E%87"><span class="toc-number">1.3.7.2.</span> <span class="toc-text">2.7.2 能量变化率</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-7-3-%E6%BB%91%E6%A8%A1%E5%AD%98%E5%9C%A8%E6%9D%A1%E4%BB%B6"><span class="toc-number">1.3.7.3.</span> <span class="toc-text">2.7.3 滑模存在条件</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-%E9%94%81%E7%9B%B8%E7%8E%AF-PLL-%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90"><span class="toc-number">1.4.</span> <span class="toc-text">3. 锁相环(PLL)深度解析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-PLL%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86"><span class="toc-number">1.4.1.</span> <span class="toc-text">3.1 PLL基本原理</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-1-1-%E4%BB%80%E4%B9%88%E6%98%AF%E9%94%81%E7%9B%B8%E7%8E%AF%EF%BC%9F"><span class="toc-number">1.4.1.1.</span> <span class="toc-text">3.1.1 什么是锁相环？</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-1-2-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81PLL%EF%BC%9F"><span class="toc-number">1.4.1.2.</span> <span class="toc-text">3.1.2 为什么需要PLL？</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-PLL%E6%95%B0%E5%AD%A6%E6%A8%A1%E5%9E%8B"><span class="toc-number">1.4.2.</span> <span class="toc-text">3.2 PLL数学模型</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-2-1-%E7%9B%B8%E4%BD%8D%E8%AF%AF%E5%B7%AE%E8%AE%A1%E7%AE%97"><span class="toc-number">1.4.2.1.</span> <span class="toc-text">3.2.1 相位误差计算</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-2-2-PLL%E6%8E%A7%E5%88%B6%E6%A1%86%E5%9B%BE"><span class="toc-number">1.4.2.2.</span> <span class="toc-text">3.2.2 PLL控制框图</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-2-3-PLL%E4%BC%A0%E9%80%92%E5%87%BD%E6%95%B0"><span class="toc-number">1.4.2.3.</span> <span class="toc-text">3.2.3 PLL传递函数</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-2-4-%E4%B8%8E%E4%BA%8C%E9%98%B6%E7%B3%BB%E7%BB%9F%E5%AF%B9%E5%BA%94"><span class="toc-number">1.4.2.4.</span> <span class="toc-text">3.2.4 与二阶系统对应</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-2-5-PLL%E5%8F%82%E6%95%B0%E8%AE%BE%E8%AE%A1"><span class="toc-number">1.4.2.5.</span> <span class="toc-text">3.2.5 PLL参数设计</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-PLL%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.4.3.</span> <span class="toc-text">3.3 PLL代码实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-3-1-PLL%E8%AE%A1%E7%AE%97%E5%87%BD%E6%95%B0"><span class="toc-number">1.4.3.1.</span> <span class="toc-text">3.3.1 PLL计算函数</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-3-2-%E5%85%B3%E9%94%AE%E7%82%B9%E8%AF%B4%E6%98%8E"><span class="toc-number">1.4.3.2.</span> <span class="toc-text">3.3.2 关键点说明</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-4-PLL%E5%8A%A8%E6%80%81%E5%93%8D%E5%BA%94%E5%88%86%E6%9E%90"><span class="toc-number">1.4.4.</span> <span class="toc-text">3.4 PLL动态响应分析</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-4-1-%E9%98%B6%E8%B7%83%E5%93%8D%E5%BA%94"><span class="toc-number">1.4.4.1.</span> <span class="toc-text">3.4.1 阶跃响应</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-4-2-%E5%93%8D%E5%BA%94%E7%89%B9%E6%80%A7"><span class="toc-number">1.4.4.2.</span> <span class="toc-text">3.4.2 响应特性</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-5-PLL%E8%B0%83%E8%AF%95%E6%8A%80%E5%B7%A7"><span class="toc-number">1.4.5.</span> <span class="toc-text">3.5 PLL调试技巧</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-5-1-%E5%8F%82%E6%95%B0%E8%B0%83%E8%8A%82%E6%96%B9%E6%B3%95"><span class="toc-number">1.4.5.1.</span> <span class="toc-text">3.5.1 参数调节方法</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-5-2-%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E8%AF%8A%E6%96%AD"><span class="toc-number">1.4.5.2.</span> <span class="toc-text">3.5.2 常见问题诊断</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-6-PLL%E5%AE%8C%E6%95%B4%E4%BF%A1%E5%8F%B7%E6%B5%81"><span class="toc-number">1.4.6.</span> <span class="toc-text">3.6 PLL完整信号流</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-SVPWM%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90"><span class="toc-number">1.5.</span> <span class="toc-text">4. SVPWM深度解析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-SVPWM%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86"><span class="toc-number">1.5.1.</span> <span class="toc-text">4.1 SVPWM基本原理</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-1-1-%E4%BB%80%E4%B9%88%E6%98%AFSVPWM%EF%BC%9F"><span class="toc-number">1.5.1.1.</span> <span class="toc-text">4.1.1 什么是SVPWM？</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-1-2-%E4%B8%BA%E4%BB%80%E4%B9%88%E7%94%A8SVPWM%EF%BC%9F"><span class="toc-number">1.5.1.2.</span> <span class="toc-text">4.1.2 为什么用SVPWM？</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-%E4%B8%89%E7%9B%B8%E9%80%86%E5%8F%98%E5%99%A8%E5%9F%BA%E6%9C%AC%E5%8E%9F%E7%90%86"><span class="toc-number">1.5.2.</span> <span class="toc-text">4.2 三相逆变器基本原理</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-2-1-%E9%80%86%E5%8F%98%E5%99%A8%E6%8B%93%E6%89%91"><span class="toc-number">1.5.2.1.</span> <span class="toc-text">4.2.1 逆变器拓扑</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-2-2-%E5%BC%80%E5%85%B3%E7%8A%B6%E6%80%81"><span class="toc-number">1.5.2.2.</span> <span class="toc-text">4.2.2 开关状态</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-%E7%A9%BA%E9%97%B4%E7%9F%A2%E9%87%8F%E5%9B%BE"><span class="toc-number">1.5.3.</span> <span class="toc-text">4.3 空间矢量图</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-3-1-%CE%B1-%CE%B2%E5%9D%90%E6%A0%87%E7%B3%BB%E4%B8%8B%E7%9A%84%E5%9F%BA%E6%9C%AC%E7%9F%A2%E9%87%8F"><span class="toc-number">1.5.3.1.</span> <span class="toc-text">4.3.1 α-β坐标系下的基本矢量</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-3-2-%E5%9F%BA%E6%9C%AC%E7%9F%A2%E9%87%8F%E5%9D%90%E6%A0%87"><span class="toc-number">1.5.3.2.</span> <span class="toc-text">4.3.2 基本矢量坐标</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-4-SVPWM%E7%AE%97%E6%B3%95%E6%8E%A8%E5%AF%BC"><span class="toc-number">1.5.4.</span> <span class="toc-text">4.4 SVPWM算法推导</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-4-1-%E7%9B%AE%E6%A0%87"><span class="toc-number">1.5.4.1.</span> <span class="toc-text">4.4.1 目标</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-4-2-%E6%89%87%E5%8C%BA%E5%88%A4%E6%96%AD"><span class="toc-number">1.5.4.2.</span> <span class="toc-text">4.4.2 扇区判断</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-4-3-%E4%BD%9C%E7%94%A8%E6%97%B6%E9%97%B4%E8%AE%A1%E7%AE%97"><span class="toc-number">1.5.4.3.</span> <span class="toc-text">4.4.3 作用时间计算</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-5-%E4%B8%83%E6%AE%B5%E5%BC%8FSVPWM"><span class="toc-number">1.5.5.</span> <span class="toc-text">4.5 七段式SVPWM</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-5-1-%E4%B8%BA%E4%BB%80%E4%B9%88%E7%94%A8%E4%B8%83%E6%AE%B5%E5%BC%8F%EF%BC%9F"><span class="toc-number">1.5.5.1.</span> <span class="toc-text">4.5.1 为什么用七段式？</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-5-2-%E6%89%87%E5%8C%BAI%E7%9A%84%E4%B8%83%E6%AE%B5%E5%BC%8F"><span class="toc-number">1.5.5.2.</span> <span class="toc-text">4.5.2 扇区I的七段式</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-5-3-%E6%89%87%E5%8C%BAI%E7%9A%84%E5%8D%A0%E7%A9%BA%E6%AF%94%E8%AE%A1%E7%AE%97"><span class="toc-number">1.5.5.3.</span> <span class="toc-text">4.5.3 扇区I的占空比计算</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-5-6-%E5%90%84%E6%89%87%E5%8C%BA%E5%8D%A0%E7%A9%BA%E6%AF%94%E8%A1%A8"><span class="toc-number">1.5.5.4.</span> <span class="toc-text">4.5.6 各扇区占空比表</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-6-SVPWM%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.5.6.</span> <span class="toc-text">4.6 SVPWM代码实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-6-1-%E5%AE%8C%E6%95%B4%E4%BB%A3%E7%A0%81%EF%BC%88%E5%B8%A6%E8%AF%A6%E7%BB%86%E6%B3%A8%E9%87%8A%EF%BC%89"><span class="toc-number">1.5.6.1.</span> <span class="toc-text">4.6.1 完整代码（带详细注释）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-6-2-PWM%E8%BE%93%E5%87%BA%E5%87%BD%E6%95%B0"><span class="toc-number">1.5.6.2.</span> <span class="toc-text">4.6.2 PWM输出函数</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-7-SVPWM%E8%AF%A6%E7%BB%86%E5%9B%BE%E8%A7%A3"><span class="toc-number">1.5.7.</span> <span class="toc-text">4.7 SVPWM详细图解</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-7-1-%E7%94%B5%E5%8E%8B%E7%9F%A2%E9%87%8F%E5%90%88%E6%88%90%EF%BC%88%E6%89%87%E5%8C%BAI%E4%B8%BA%E4%BE%8B%EF%BC%89"><span class="toc-number">1.5.7.1.</span> <span class="toc-text">4.7.1 电压矢量合成（扇区I为例）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-7-2-%E4%B8%83%E6%AE%B5%E5%BC%8F%E5%BC%80%E5%85%B3%E5%BA%8F%E5%88%97%EF%BC%88%E6%89%87%E5%8C%BAI%EF%BC%89"><span class="toc-number">1.5.7.2.</span> <span class="toc-text">4.7.2 七段式开关序列（扇区I）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-8-SVPWM%E4%B8%8ESPWM%E5%AF%B9%E6%AF%94"><span class="toc-number">1.5.8.</span> <span class="toc-text">4.8 SVPWM与SPWM对比</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-8-1-%E7%94%B5%E5%8E%8B%E5%88%A9%E7%94%A8%E7%8E%87"><span class="toc-number">1.5.8.1.</span> <span class="toc-text">4.8.1 电压利用率</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-8-2-%E8%B0%90%E6%B3%A2%E7%89%B9%E6%80%A7"><span class="toc-number">1.5.8.2.</span> <span class="toc-text">4.8.2 谐波特性</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-8-3-%E5%AE%9E%E7%8E%B0%E5%A4%8D%E6%9D%82%E5%BA%A6"><span class="toc-number">1.5.8.3.</span> <span class="toc-text">4.8.3 实现复杂度</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-%E4%BB%A3%E7%A0%81%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90"><span class="toc-number">1.6.</span> <span class="toc-text">5. 代码架构分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#5-1-%E6%96%87%E4%BB%B6%E7%BB%93%E6%9E%84"><span class="toc-number">1.6.1.</span> <span class="toc-text">5.1 文件结构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-2-%E4%B8%BB%E7%A8%8B%E5%BA%8F%E6%B5%81%E7%A8%8B"><span class="toc-number">1.6.2.</span> <span class="toc-text">5.2 主程序流程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-3-runFOC%E6%A0%B8%E5%BF%83%E5%BE%AA%E7%8E%AF%E8%AF%A6%E8%A7%A3"><span class="toc-number">1.6.3.</span> <span class="toc-text">5.3 runFOC核心循环详解</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#6-%E6%A0%B8%E5%BF%83%E6%A8%A1%E5%9D%97%E8%AF%A6%E8%A7%A3"><span class="toc-number">1.7.</span> <span class="toc-text">6. 核心模块详解</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#6-1-%E5%9D%90%E6%A0%87%E5%8F%98%E6%8D%A2%E6%A8%A1%E5%9D%97"><span class="toc-number">1.7.1.</span> <span class="toc-text">6.1 坐标变换模块</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Clarke%E5%8F%98%E6%8D%A2%EF%BC%88ABC-%E2%86%92-%CE%B1%CE%B2%EF%BC%89"><span class="toc-number">1.7.1.1.</span> <span class="toc-text">Clarke变换（ABC → αβ）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-2-%E7%94%B5%E6%B5%81%E9%87%87%E6%A0%B7%E6%A8%A1%E5%9D%97"><span class="toc-number">1.7.2.</span> <span class="toc-text">6.2 电流采样模块</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-3-PID%E6%8E%A7%E5%88%B6%E6%A8%A1%E5%9D%97"><span class="toc-number">1.7.3.</span> <span class="toc-text">6.3 PID控制模块</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#7-%E8%B0%83%E5%8F%82%E6%8C%87%E5%8D%97"><span class="toc-number">1.8.</span> <span class="toc-text">7. 调参指南</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#7-1-%E7%94%B5%E6%9C%BA%E5%8F%82%E6%95%B0%E6%B5%8B%E9%87%8F"><span class="toc-number">1.8.1.</span> <span class="toc-text">7.1 电机参数测量</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-2-SMO%E5%8F%82%E6%95%B0%E8%B0%83%E8%AF%95"><span class="toc-number">1.8.2.</span> <span class="toc-text">7.2 SMO参数调试</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%BB%91%E6%A8%A1%E5%A2%9E%E7%9B%8Ah"><span class="toc-number">1.8.2.1.</span> <span class="toc-text">滑模增益h</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#PLL%E5%8F%82%E6%95%B0"><span class="toc-number">1.8.2.2.</span> <span class="toc-text">PLL参数</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-3-%E5%AE%8C%E6%95%B4%E8%B0%83%E5%8F%82%E6%B5%81%E7%A8%8B"><span class="toc-number">1.8.3.</span> <span class="toc-text">7.3 完整调参流程</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#8-%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E4%B8%8E%E8%B0%83%E8%AF%95"><span class="toc-number">1.9.</span> <span class="toc-text">8. 常见问题与调试</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#8-1-%E9%97%AE%E9%A2%98%E8%AF%8A%E6%96%AD%E8%A1%A8"><span class="toc-number">1.9.1.</span> <span class="toc-text">8.1 问题诊断表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#8-2-%E8%B0%83%E8%AF%95%E6%8A%80%E5%B7%A7"><span class="toc-number">1.9.2.</span> <span class="toc-text">8.2 调试技巧</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%B2%E5%8F%A3%E7%9B%91%E6%8E%A7"><span class="toc-number">1.9.2.1.</span> <span class="toc-text">串口监控</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E4%B8%B2%E5%8F%A3%E7%BB%98%E5%9B%BE%E5%99%A8"><span class="toc-number">1.9.2.2.</span> <span class="toc-text">使用串口绘图器</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%99%84%E5%BD%95A%EF%BC%9A%E9%87%8D%E8%A6%81%E5%85%AC%E5%BC%8F%E6%B1%87%E6%80%BB"><span class="toc-number">1.10.</span> <span class="toc-text">附录A：重要公式汇总</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#A-1-%E7%94%B5%E6%9C%BA%E6%A8%A1%E5%9E%8B"><span class="toc-number">1.10.1.</span> <span class="toc-text">A.1 电机模型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#A-2-%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8"><span class="toc-number">1.10.2.</span> <span class="toc-text">A.2 滑模观测器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#A-3-PLL"><span class="toc-number">1.10.3.</span> <span class="toc-text">A.3 PLL</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#A-4-SVPWM"><span class="toc-number">1.10.4.</span> <span class="toc-text">A.4 SVPWM</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E7%A2%8E%E7%A2%8E%E5%BF%B5/%E4%B8%8D%E7%9B%B8%E4%BF%A1%E6%84%8F%E4%B9%89%EF%BC%8C%E4%BD%86%E6%88%91%E7%83%AD%E7%88%B1%E6%98%A5%E5%A4%A9/" title="不相信意义，但我热爱春天">不相信意义，但我热爱春天</a><time datetime="2026-03-15T15:14:00.000Z" title="发表于 2026-03-15 23:14:00">2026-03-15</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E9%A9%AC%E5%AD%94%E5%A4%9A%E7%9A%84%E9%A3%8E%EF%BC%9A%E4%B8%80%E7%99%BE%E5%B9%B4%E7%9A%84%E5%AD%A4%E7%8B%AC%E4%B8%8E%E5%BE%AA%E7%8E%AF/" title="马孔多的风：一百年的孤独与循环">马孔多的风：一百年的孤独与循环</a><time datetime="2026-03-15T15:13:00.000Z" title="发表于 2026-03-15 23:13:00">2026-03-15</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E9%BA%A6%E7%94%B0%E8%BE%B9%E7%BC%98%E7%9A%84%E5%AE%88%E6%9C%9B%EF%BC%9A%E6%8B%92%E7%BB%9D%E6%AF%8F%E4%B8%80%E4%B8%AA%E4%BC%AA%E5%96%84%E7%9A%84%E7%9E%AC%E9%97%B4/" title="麦田边缘的守望：拒绝每一个伪善的瞬间">麦田边缘的守望：拒绝每一个伪善的瞬间</a><time datetime="2026-03-15T15:12:00.000Z" title="发表于 2026-03-15 23:12:00">2026-03-15</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E6%9E%AF%E4%BA%95%E3%80%81%E5%8F%91%E6%9D%A1%E9%B8%9F%E4%B8%8E%E6%97%A0%E5%A3%B0%E7%9A%84%E6%8A%97%E4%BA%89/" title="枯井、发条鸟与无声的抗争">枯井、发条鸟与无声的抗争</a><time datetime="2026-03-15T15:11:00.000Z" title="发表于 2026-03-15 23:11:00">2026-03-15</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E5%9B%9B%E5%8F%A0%E5%8D%8A%E7%9A%84%E7%A5%9E%E8%AF%9D%E5%A4%A7%E7%B3%BB%EF%BC%9A%E7%8E%AB%E7%91%B0%E8%89%B2%E7%9A%84%E6%A0%A1%E5%9B%AD%E7%94%9F%E6%B4%BB%E5%8F%AA%E5%9C%A8%E6%A2%A6%E9%87%8C/" title="四叠半的神话大系：玫瑰色的校园生活只在梦里">四叠半的神话大系：玫瑰色的校园生活只在梦里</a><time datetime="2026-03-15T15:10:00.000Z" title="发表于 2026-03-15 23:10:00">2026-03-15</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 隼</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><div class="js-pjax"><script>(() => {
+  const loadMathjax = () => {
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'ams',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          enableMenu: false,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+          renderActions: {
+            findScript: [10, doc => {
+              for (const node of document.querySelectorAll('script[type^="math/tex"]')) {
+                const display = !!node.type.match(/; *mode=display/)
+                const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display)
+                const text = document.createTextNode('')
+                node.parentNode.replaceChild(text, node)
+                math.start = {node: text, delim: '', n: 0}
+                math.end = {node: text, delim: '', n: 0}
+                doc.math.push(math)
+              }
+            }, '']
+          }
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://unpkg.com/mathjax@4.1.0/tex-mml-chtml.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.startup.document.state(0)
+      MathJax.texReset()
+      MathJax.typesetPromise()
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script></div><script defer src="/js/literature-corner.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="在风声和笔记里检索一段波形" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.5.4"></script></div></div></body></html>

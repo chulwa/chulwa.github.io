@@ -1,0 +1,320 @@
+body {
+  font-family: 'Noto Serif SC', 'PingFang SC', serif !important;
+  background: linear-gradient(180deg, #eef1ea 0%, #f6f3ec 38%, #f4efe8 100%) !important;
+  color: #2f342f;
+}
+
+.left-decorative-cards,
+.aside-left-decoration {
+  display: none !important;
+}
+
+.layout {
+  max-width: 1400px !important;
+  width: 100% !important;
+}
+
+.layout > div:first-child {
+  width: 75% !important;
+  min-width: 0;
+}
+
+#aside-content {
+  width: 25% !important;
+}
+
+@media (max-width: 900px) {
+  .layout > div:first-child,
+  #aside-content {
+    width: 100% !important;
+  }
+}
+
+body.home-abbey #page-header::before {
+  background: linear-gradient(180deg, rgba(27, 36, 31, 0.34) 0%, rgba(27, 36, 31, 0.12) 48%, rgba(246, 243, 236, 0.08) 100%);
+  backdrop-filter: sepia(15%) contrast(1.1);
+}
+
+body.home-abbey #page-header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.15' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+body.home-abbey #page-header {
+  overflow: hidden;
+}
+
+#site-title {
+  font-size: 2.9rem !important;
+  letter-spacing: 0.12em;
+  color: #f6f3ec !important;
+  text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.82), 0 0 28px rgba(0, 0, 0, 0.36);
+}
+
+#site-subtitle,
+#subtitle {
+  color: rgba(246, 243, 236, 0.92) !important;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 18px rgba(0, 0, 0, 0.34);
+}
+
+#site-info {
+  padding: 1.2rem 1.6rem;
+  background: rgba(24, 31, 27, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  backdrop-filter: blur(8px);
+}
+
+#recent-posts > .recent-post-item,
+#aside-content .card-widget,
+div#post,
+div#page,
+div#archive {
+  background: rgba(255, 252, 246, 0.82) !important;
+  border: 1px solid rgba(80, 92, 78, 0.1);
+  border-radius: 18px !important;
+  box-shadow: 0 18px 40px rgba(53, 61, 54, 0.08) !important;
+}
+
+#recent-posts > .recent-post-item {
+  padding: 0 !important;
+  overflow: hidden;
+  z-index: 1;
+}
+
+#recent-posts > .recent-post-item > .recent-post-info,
+#recent-posts > .recent-post-item .recent-post-info {
+  padding: 1.4rem 1.5rem 1.6rem !important;
+  min-width: 0;
+}
+
+#recent-posts > .recent-post-item:hover,
+#aside-content .card-widget:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 22px 48px rgba(53, 61, 54, 0.12) !important;
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+#aside-content .card-info .author-info__name,
+#aside-content .site-data > a .headline,
+.article-title,
+#page .page-title {
+  color: #243128 !important;
+}
+
+a,
+#article-container a {
+  color: #5d735f;
+}
+
+#article-container a:hover {
+  color: #2f4a36;
+}
+
+#article-container h1,
+#article-container h2,
+#article-container h3,
+#article-container h4 {
+  color: #2c352d;
+  letter-spacing: 0.03em;
+}
+
+#article-container code,
+#article-container pre {
+  border-radius: 12px;
+}
+
+#footer {
+  background: rgba(33, 42, 36, 0.88);
+}
+
+/* 宽屏布局和分页溢出修复 */
+#content-inner {
+  width: 100% !important;
+  max-width: 1400px;
+  padding: 0 15px;
+  box-sizing: border-box;
+  margin-top: 60px !important;
+  margin-bottom: 60px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  display: flex;
+  justify-content: center;
+}
+
+#pagination {
+  clear: both;
+  width: 100%;
+  margin-top: 80px !important;
+  padding-top: 10px;
+  padding-bottom: 50px;
+  position: relative;
+  z-index: 2;
+}
+
+#aside-content {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 25%;
+  max-width: 25%;
+}
+
+#aside-content .card-archives .aside-list-item,
+#aside-content .card-webinfo .webinfo-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  white-space: nowrap;
+  padding: 5px 0;
+  gap: 10px;
+}
+
+#aside-content .card-webinfo .webinfo-item .item-name {
+  margin-right: 10px;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#aside-content .card-webinfo .webinfo-item .item-count,
+#aside-content .card-archives .aside-list-item .content {
+  flex: 0 0 auto;
+}
+
+/* --- 仅在分类页生效的侧边栏逻辑 --- */
+#content-inner:has(#category) #aside-content .card-webinfo,
+#content-inner:has(#category) #aside-content .card-archives {
+  display: none !important;
+}
+
+#content-inner:has(#category) #aside-content .card-tags,
+#content-inner:has(#category) #aside-content .card-recent-post,
+#content-inner:has(#category) #aside-content .card-announcement {
+  display: block !important;
+}
+
+.poetry-page #page {
+  position: relative;
+  overflow: hidden;
+}
+
+.poetry-collage {
+  position: relative;
+  height: 220px;
+  margin: 1.2rem 0 2rem;
+}
+
+.poetry-collage span {
+  position: absolute;
+  inset: auto;
+  display: block;
+  box-shadow: 0 20px 45px rgba(31, 36, 52, 0.14);
+}
+
+.poetry-collage__pink {
+  left: 0;
+  top: 12px;
+  width: 38%;
+  height: 170px;
+  background: #ff5c8a;
+  clip-path: polygon(0 9%, 86% 0, 100% 76%, 14% 100%);
+}
+
+.poetry-collage__yellow {
+  left: 28%;
+  top: 0;
+  width: 34%;
+  height: 210px;
+  background: #d4b321;
+  clip-path: polygon(14% 0, 100% 8%, 86% 100%, 0 82%);
+}
+
+.poetry-collage__blue {
+  right: 0;
+  top: 24px;
+  width: 40%;
+  height: 176px;
+  background: #1f3f8e;
+  clip-path: polygon(0 18%, 88% 0, 100% 100%, 10% 84%);
+}
+
+body.literature-corner-post {
+  font-family: 'Source Han Serif SC', 'Noto Serif SC', 'PingFang SC', serif !important;
+}
+
+body.literature-corner-post::before,
+body.literature-corner-post::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  z-index: 0;
+  pointer-events: none;
+}
+
+body.literature-corner-post::before {
+  left: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 179, 102, 0.95) 0 16%, transparent 16% 44%, rgba(85, 170, 145, 0.85) 44% 72%, transparent 72% 100%);
+}
+
+body.literature-corner-post::after {
+  right: 0;
+  background:
+    linear-gradient(180deg, rgba(85, 170, 145, 0.85) 0 20%, transparent 20% 58%, rgba(255, 219, 102, 0.92) 58% 84%, transparent 84% 100%);
+}
+
+body.literature-corner-post #article-container {
+  font-family: 'Source Han Serif SC', 'Noto Serif SC', 'PingFang SC', serif !important;
+  line-height: 2.1;
+  letter-spacing: 0.02em;
+}
+
+body.literature-corner-post #article-container p,
+body.literature-corner-post #article-container li,
+body.literature-corner-post #article-container blockquote {
+  font-size: 1.04rem;
+}
+
+body.literature-corner-post #article-container blockquote {
+  border-left: 4px solid #f0ab4f;
+  background: rgba(255, 247, 231, 0.78);
+}
+
+#literature-random-card .literature-random-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+#literature-random-card .literature-random-link {
+  font-weight: 700;
+  color: #314d37;
+}
+
+#literature-random-card .literature-random-text {
+  margin: 0;
+  color: #5a665a;
+  line-height: 1.8;
+}
+
+@media (max-width: 768px) {
+  .poetry-collage {
+    height: 180px;
+  }
+
+  #content-inner {
+    display: block;
+  }
+
+  #aside-content {
+    max-width: 100%;
+  }
+}

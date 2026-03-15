@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="嵌入式分类封面">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#152a2a"/>
+      <stop offset="100%" stop-color="#3d6555"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g fill="none" stroke="rgba(230,245,237,0.25)" stroke-width="4">
+    <path d="M120 180h380v120h220v-90h260"/>
+    <path d="M260 620h310v-130h220v90h360"/>
+    <path d="M1030 130v160h240v180"/>
+    <path d="M430 760v-140h-180v-160"/>
+  </g>
+  <g fill="#d9efe1">
+    <circle cx="500" cy="300" r="18"/>
+    <circle cx="980" cy="210" r="18"/>
+    <circle cx="570" cy="490" r="18"/>
+    <circle cx="1270" cy="470" r="18"/>
+    <circle cx="250" cy="620" r="18"/>
+  </g>
+  <rect x="600" y="260" width="380" height="240" rx="28" fill="rgba(233,247,240,0.1)" stroke="rgba(233,247,240,0.42)" stroke-width="6"/>
+  <text x="790" y="385" fill="#eef7f0" font-size="72" text-anchor="middle" font-family="PingFang SC, Noto Sans SC, sans-serif">EMBEDDED</text>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="书影音分类封面">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#8c6d52"/>
+      <stop offset="100%" stop-color="#d9b58c"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="230" y="120" width="1140" height="660" rx="24" fill="rgba(50,35,24,0.15)" stroke="rgba(255,244,225,0.36)" stroke-width="8"/>
+  <circle cx="560" cy="450" r="150" fill="rgba(58,39,28,0.22)" stroke="rgba(255,240,218,0.45)" stroke-width="10"/>
+  <circle cx="560" cy="450" r="46" fill="rgba(255,244,225,0.5)"/>
+  <rect x="800" y="270" width="290" height="360" rx="14" fill="rgba(255,245,232,0.26)" stroke="rgba(255,244,225,0.45)" stroke-width="8"/>
+  <text x="950" y="725" fill="#fff6ea" font-size="72" text-anchor="middle" font-family="PingFang SC, Noto Sans SC, sans-serif">书影音</text>
+</svg>

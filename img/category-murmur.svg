@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="碎碎念分类封面">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#d6e7bb"/>
+      <stop offset="100%" stop-color="#9dc07d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <path d="M0 690c180-90 290-120 470-90 180 30 310 120 540 88 190-26 338-118 590-48V900H0z" fill="#f5edc2"/>
+  <path d="M0 760c210-70 370-80 560-18 150 48 278 68 450 24 150-38 318-120 590-60V900H0z" fill="#b6d193"/>
+  <circle cx="1190" cy="190" r="74" fill="rgba(255,247,212,0.86)"/>
+  <text x="800" y="800" fill="#31432a" font-size="76" text-anchor="middle" font-family="PingFang SC, Noto Sans SC, sans-serif">碎碎念</text>
+</svg>

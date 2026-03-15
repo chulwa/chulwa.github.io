@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="电机控制分类封面">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#17313b"/>
+      <stop offset="100%" stop-color="#325b6f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="800" cy="450" r="220" fill="rgba(255,255,255,0.08)" stroke="rgba(214,236,243,0.4)" stroke-width="10"/>
+  <circle cx="800" cy="450" r="110" fill="rgba(255,255,255,0.06)" stroke="rgba(214,236,243,0.32)" stroke-width="8"/>
+  <g stroke="rgba(238,247,250,0.28)" stroke-width="8">
+    <line x1="800" y1="210" x2="800" y2="120"/>
+    <line x1="1040" y1="450" x2="1180" y2="450"/>
+    <line x1="800" y1="690" x2="800" y2="780"/>
+    <line x1="560" y1="450" x2="420" y2="450"/>
+  </g>
+  <text x="800" y="835" fill="#eef6f8" font-size="78" text-anchor="middle" font-family="PingFang SC, Noto Sans SC, sans-serif">电机控制</text>
+</svg>

@@ -1,0 +1,473 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>SMO滑模观测器代码解析文档 | 嵌入式笔记</title><meta name="author" content="隼"><meta name="copyright" content="隼"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="ESP32 无感FOC - SMO滑模观测器代码解析文档项目概述本项目是基于ESP32的无感FOC（Field Oriented Control，磁场定向控制）电机控制实现，使用滑模观测器（Sliding Mode Observer, SMO）进行转子位置和速度估算。项目支持双电机控制，采用电流闭环控制方式。 硬件平台 MCU: ESP32 电流采样: 两相采样（A、B相） 位置传感器: AS56">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SMO滑模观测器代码解析文档">
+<meta property="og:url" content="https://chulwa.github.io/2026/03/15/SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90%E6%96%87%E6%A1%A3/index.html">
+<meta property="og:site_name" content="嵌入式笔记">
+<meta property="og:description" content="ESP32 无感FOC - SMO滑模观测器代码解析文档项目概述本项目是基于ESP32的无感FOC（Field Oriented Control，磁场定向控制）电机控制实现，使用滑模观测器（Sliding Mode Observer, SMO）进行转子位置和速度估算。项目支持双电机控制，采用电流闭环控制方式。 硬件平台 MCU: ESP32 电流采样: 两相采样（A、B相） 位置传感器: AS56">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://chulwa.github.io/img/author-avatar.jpg">
+<meta property="article:published_time" content="2026-03-15T13:39:31.000Z">
+<meta property="article:modified_time" content="2026-03-15T15:35:59.407Z">
+<meta property="article:author" content="隼">
+<meta property="article:tag" content="FOC">
+<meta property="article:tag" content="SMO">
+<meta property="article:tag" content="电机控制">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://chulwa.github.io/img/author-avatar.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "SMO滑模观测器代码解析文档",
+  "url": "https://chulwa.github.io/2026/03/15/SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90%E6%96%87%E6%A1%A3/",
+  "image": "https://chulwa.github.io/img/author-avatar.jpg",
+  "datePublished": "2026-03-15T13:39:31.000Z",
+  "dateModified": "2026-03-15T15:35:59.407Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "隼",
+      "url": "https://chulwa.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://chulwa.github.io/2026/03/15/SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90%E6%96%87%E6%A1%A3/index.html"><link rel="preconnect" href="//unpkg.com"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://unpkg.com/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":false,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://unpkg.com/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'SMO滑模观测器代码解析文档',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="/css/forest.css"><meta name="generator" content="Hexo 8.1.1"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/author-avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">19</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">27</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-tree"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/poetry/"><i class="fa-fw fa-solid fa-feather-pointed"></i><span> 文学角落</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-feather-pointed"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">嵌入式笔记</span></a><a class="nav-page-title" href="/"><span class="site-name">SMO滑模观测器代码解析文档</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-tree"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/poetry/"><i class="fa-fw fa-solid fa-feather-pointed"></i><span> 文学角落</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-feather-pointed"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">SMO滑模观测器代码解析文档</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-03-15T13:39:31.000Z" title="发表于 2026-03-15 21:39:31">2026-03-15</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-03-15T15:35:59.407Z" title="更新于 2026-03-15 23:35:59">2026-03-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%B5%8C%E5%85%A5%E5%BC%8F/">嵌入式</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%B5%8C%E5%85%A5%E5%BC%8F/%E7%94%B5%E6%9C%BA%E6%8E%A7%E5%88%B6/">电机控制</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%B5%8C%E5%85%A5%E5%BC%8F/%E7%94%B5%E6%9C%BA%E6%8E%A7%E5%88%B6/FOC/">FOC</a></span></div><div class="meta-secondline"></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="ESP32-无感FOC-SMO滑模观测器代码解析文档"><a href="#ESP32-无感FOC-SMO滑模观测器代码解析文档" class="headerlink" title="ESP32 无感FOC - SMO滑模观测器代码解析文档"></a>ESP32 无感FOC - SMO滑模观测器代码解析文档</h1><h2 id="项目概述"><a href="#项目概述" class="headerlink" title="项目概述"></a>项目概述</h2><p>本项目是基于ESP32的无感FOC（Field Oriented Control，磁场定向控制）电机控制实现，使用<strong>滑模观测器（Sliding Mode Observer, SMO）</strong>进行转子位置和速度估算。项目支持双电机控制，采用电流闭环控制方式。</p>
+<h3 id="硬件平台"><a href="#硬件平台" class="headerlink" title="硬件平台"></a>硬件平台</h3><ul>
+<li><strong>MCU</strong>: ESP32</li>
+<li><strong>电流采样</strong>: 两相采样（A、B相）</li>
+<li><strong>位置传感器</strong>: AS5600磁编码器（仅用于校准，运行时不使用）</li>
+<li><strong>功率级</strong>: 三相桥驱动</li>
+</ul>
+<h3 id="核心特性"><a href="#核心特性" class="headerlink" title="核心特性"></a>核心特性</h3><ul>
+<li>滑模观测器（SMO）无感位置估算</li>
+<li>电流闭环FOC控制</li>
+<li>双电机支持（M0和M1）</li>
+<li>可配置的PID控制器</li>
+<li>低通滤波器</li>
+</ul>
+<hr>
+<h2 id="文件结构"><a href="#文件结构" class="headerlink" title="文件结构"></a>文件结构</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">4_SMO滑模观测器/</span><br><span class="line">├── 4_SMO滑模观测器.ino      # 主程序入口</span><br><span class="line">├── DengFOC.h/cpp              # FOC核心控制库</span><br><span class="line">├── InlineCurrent.h/cpp        # 电流采样模块</span><br><span class="line">├── AS5600.h/cpp               # AS5600编码器驱动（校准用）</span><br><span class="line">├── lowpass_filter.h/cpp       # 低通滤波器</span><br><span class="line">├── pid.h/cpp                  # PID控制器</span><br><span class="line">└── esp32_adc_driver.h/cpp     # ESP32 ADC底层驱动</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="一、主程序-4-SMO滑模观测器-ino-详解"><a href="#一、主程序-4-SMO滑模观测器-ino-详解" class="headerlink" title="一、主程序 (4_SMO滑模观测器.ino) 详解"></a>一、主程序 (4_SMO滑模观测器.ino) 详解</h2><h3 id="1-1-全局变量定义"><a href="#1-1-全局变量定义" class="headerlink" title="1.1 全局变量定义"></a>1.1 全局变量定义</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SMO相关变量</span></span><br><span class="line"><span class="type">float</span> Rs = <span class="number">8.25</span>;        <span class="comment">// 定子电阻（欧姆）</span></span><br><span class="line"><span class="type">float</span> Ls = <span class="number">0.004256</span>;    <span class="comment">// 定子电感（亨利）</span></span><br><span class="line"><span class="type">float</span> h = <span class="number">0.3</span>;          <span class="comment">// 滑模增益</span></span><br><span class="line"><span class="type">float</span> SMO_Ualpha, SMO_Ubeta;  <span class="comment">// SMO输入电压（αβ坐标系）</span></span><br></pre></td></tr></table></figure>
+<p><strong>说明</strong>：</p>
+<ul>
+<li><code>Rs</code>, <code>Ls</code>: 电机参数，需要根据实际电机调整</li>
+<li><code>h</code>: 滑模增益，影响SMO收敛速度和稳定性</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SMO估算变量</span></span><br><span class="line"><span class="type">float</span> Est_Ialpha, Est_Ibeta;      <span class="comment">// 估算电流（αβ坐标系）</span></span><br><span class="line"><span class="type">float</span> Ealpha, Ebeta;              <span class="comment">// 反电动势估算值</span></span><br><span class="line"><span class="type">float</span> Ealpha_flt, Ebeta_flt;      <span class="comment">// 滤波后的反电动势</span></span><br><span class="line"><span class="type">float</span> SMO_Est_theta;              <span class="comment">// 估算的电角度</span></span><br><span class="line"><span class="type">float</span> SMO_Vel;                    <span class="comment">// 估算的转速</span></span><br><span class="line"><span class="type">float</span> SMO_Theta;                  <span class="comment">// 估算的累积角度</span></span><br></pre></td></tr></table></figure>
+<h3 id="1-2-setup-函数-初始化"><a href="#1-2-setup-函数-初始化" class="headerlink" title="1.2 setup()函数 - 初始化"></a>1.2 setup()函数 - 初始化</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">setup</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  Serial.<span class="built_in">begin</span>(<span class="number">115200</span>);</span><br><span class="line">  <span class="built_in">DFOC_enable</span>();                      <span class="comment">// 使能电机驱动</span></span><br><span class="line">  <span class="built_in">DFOC_Vbus</span>(<span class="number">12</span>);                      <span class="comment">// 设置供电电压12V</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 传感器校准（找到电角度零点）</span></span><br><span class="line">  <span class="built_in">DFOC_M0_alignSensor</span>(<span class="number">7</span>, <span class="number">1</span>);         <span class="comment">// M0: 7极对，方向1</span></span><br><span class="line">  <span class="built_in">DFOC_M1_alignSensor</span>(<span class="number">7</span>, <span class="number">-1</span>);        <span class="comment">// M1: 7极对，方向-1</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// PID参数设置</span></span><br><span class="line">  <span class="built_in">DFOC_M0_SET_CURRENT_PID</span>(<span class="number">3</span>, <span class="number">200</span>, <span class="number">0</span>, <span class="number">100000</span>);  <span class="comment">// 电流环</span></span><br><span class="line">  <span class="built_in">DFOC_M1_SET_CURRENT_PID</span>(<span class="number">3</span>, <span class="number">200</span>, <span class="number">0</span>, <span class="number">100000</span>);</span><br><span class="line">  <span class="built_in">DFOC_M0_SET_VEL_PID</span>(<span class="number">0.02</span>, <span class="number">0.1</span>, <span class="number">0</span>, <span class="number">100000</span>, <span class="number">6</span>); <span class="comment">// 速度环</span></span><br><span class="line">  <span class="built_in">DFOC_M1_SET_VEL_PID</span>(<span class="number">0.02</span>, <span class="number">0.5</span>, <span class="number">0</span>, <span class="number">100000</span>, <span class="number">6</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="1-3-loop-函数-主循环"><a href="#1-3-loop-函数-主循环" class="headerlink" title="1.3 loop()函数 - 主循环"></a>1.3 loop()函数 - 主循环</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">loop</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">runFOC</span>();                              <span class="comment">// 运行FOC算法</span></span><br><span class="line">  <span class="built_in">DFOC_M0_setVelocity</span>(<span class="number">80</span>);               <span class="comment">// 设置目标速度80 rad/s</span></span><br><span class="line">  <span class="built_in">serialReceiveUserCommand</span>();            <span class="comment">// 接收串口命令</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="二、SMO滑模观测器核心算法"><a href="#二、SMO滑模观测器核心算法" class="headerlink" title="二、SMO滑模观测器核心算法"></a>二、SMO滑模观测器核心算法</h2><h3 id="2-1-SMO原理简介"><a href="#2-1-SMO原理简介" class="headerlink" title="2.1 SMO原理简介"></a>2.1 SMO原理简介</h3><p>滑模观测器是一种基于变结构控制理论的状态观测器，其核心思想是：</p>
+<ol>
+<li>根据电机电压方程构建电流观测器</li>
+<li>通过滑模控制律（符号函数）使观测电流收敛到实际电流</li>
+<li>从滑模控制信号中提取反电动势信息</li>
+<li>由反电动势计算转子位置</li>
+</ol>
+<h3 id="2-2-核心函数：SMO-position-estimate"><a href="#2-2-核心函数：SMO-position-estimate" class="headerlink" title="2.2 核心函数：SMO_position_estimate()"></a>2.2 核心函数：SMO_position_estimate()</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">SMO_position_estimate</span><span class="params">()</span></span>&#123;</span><br><span class="line">  <span class="comment">// 1. 计算采样时间</span></span><br><span class="line">  <span class="type">uint32_t</span> now_time = <span class="built_in">micros</span>();</span><br><span class="line">  Ts = (now_time - SMO_last_time) * <span class="number">1e-6f</span>;</span><br><span class="line">  SMO_last_time = now_time;</span><br><span class="line">  <span class="keyword">if</span> (Ts &lt; <span class="number">0</span> || Ts &gt; <span class="number">5e-3f</span>) Ts = <span class="number">1e-3f</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 2. 读取实际电流并转换到αβ坐标系</span></span><br><span class="line">  <span class="type">float</span> Ialpha = CS_M<span class="number">0.</span>current_a;</span><br><span class="line">  <span class="type">float</span> Ibeta = _1_SQRT3 * CS_M<span class="number">0.</span>current_a + _2_SQRT3 * CS_M<span class="number">0.</span>current_b;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 3. 电流观测器更新（欧拉法离散化）</span></span><br><span class="line">  <span class="comment">// PMSM电压方程: dI/dt = (-Rs*I + U - E) / Ls</span></span><br><span class="line">  Est_Ialpha += Ts * (-Rs / Ls * Est_Ialpha + <span class="number">1</span> / Ls * (SMO_Ualpha - Ealpha));</span><br><span class="line">  Est_Ibeta += Ts * (-Rs / Ls * Est_Ibeta + <span class="number">1</span> / Ls * (SMO_Ubeta - Ebeta));</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 4. 计算电流误差</span></span><br><span class="line">  <span class="type">float</span> Ialpha_Err = Est_Ialpha - Ialpha;</span><br><span class="line">  <span class="type">float</span> Ibeta_Err = Est_Ibeta - Ibeta;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 5. 滑模控制律（带饱和函数）</span></span><br><span class="line">  Ealpha = h * <span class="built_in">sat</span>(Ialpha_Err, <span class="number">0.5f</span>);</span><br><span class="line">  Ebeta = h * <span class="built_in">sat</span>(Ibeta_Err, <span class="number">0.5f</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 6. 反电动势滤波（减少抖动）</span></span><br><span class="line">  Ealpha_flt = <span class="number">0.1</span> * Ealpha_flt + <span class="number">0.9</span> * Ealpha;</span><br><span class="line">  Ebeta_flt = <span class="number">0.1</span> * Ebeta_flt + <span class="number">0.9</span> * Ebeta;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 7. 计算电角度：θ = -atan(Eα/Eβ)</span></span><br><span class="line">  SMO_Est_theta = (-<span class="built_in">atan</span>(Ealpha_flt / Ebeta_flt));</span><br><span class="line">  SMO_Est_theta = _normalizeAngle(SMO_Est_theta);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="2-3-饱和函数-sat"><a href="#2-3-饱和函数-sat" class="headerlink" title="2.3 饱和函数 sat()"></a>2.3 饱和函数 sat()</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">float</span> <span class="title">sat</span><span class="params">(<span class="type">float</span> err, <span class="type">float</span> limits)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (err &gt; limits) <span class="keyword">return</span> <span class="number">1</span>;        <span class="comment">// 上饱和</span></span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span> (err &lt; -limits) <span class="keyword">return</span> <span class="number">-1</span>; <span class="comment">// 下饱和</span></span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">return</span> err / limits;          <span class="comment">// 线性区</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>作用</strong>：减少滑模控制的抖振现象（Chattering）</p>
+<h3 id="2-4-SMO速度计算"><a href="#2-4-SMO速度计算" class="headerlink" title="2.4 SMO速度计算"></a>2.4 SMO速度计算</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">float</span> <span class="title">getSMOVel</span><span class="params">()</span></span>&#123;</span><br><span class="line">  <span class="type">float</span> Ts = (SMO_angle_prev_ts - SMO_vel_angle_prev_ts)*<span class="number">1e-6</span>;</span><br><span class="line">  <span class="keyword">if</span>(Ts &lt;= <span class="number">0</span>) Ts = <span class="number">1e-3f</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 计算角速度</span></span><br><span class="line">  <span class="type">float</span> vel = ((<span class="type">float</span>)(SMO_full_rotations - SMO_vel_full_rotations)*_2PI</span><br><span class="line">               + (SMO_angle_prev - SMO_vel_angle_prev)) / Ts;</span><br><span class="line">  vel = vel/<span class="number">14</span>;  <span class="comment">// 除以极对数，得到机械角速度</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// 更新历史值</span></span><br><span class="line">  SMO_vel_angle_prev = SMO_angle_prev;</span><br><span class="line">  SMO_vel_full_rotations = SMO_full_rotations;</span><br><span class="line">  SMO_vel_angle_prev_ts = SMO_angle_prev_ts;</span><br><span class="line">  <span class="keyword">return</span> vel;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="三、FOC核心控制-DengFOC-cpp"><a href="#三、FOC核心控制-DengFOC-cpp" class="headerlink" title="三、FOC核心控制 (DengFOC.cpp)"></a>三、FOC核心控制 (DengFOC.cpp)</h2><h3 id="3-1-坐标变换"><a href="#3-1-坐标变换" class="headerlink" title="3.1 坐标变换"></a>3.1 坐标变换</h3><h4 id="3-1-1-帕克逆变换（dq-→-αβ）"><a href="#3-1-1-帕克逆变换（dq-→-αβ）" class="headerlink" title="3.1.1 帕克逆变换（dq → αβ）"></a>3.1.1 帕克逆变换（dq → αβ）</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">M0_setTorque</span><span class="params">(<span class="type">float</span> Uq, <span class="type">float</span> angle_el)</span> </span>&#123;</span><br><span class="line">  Uq = _constrain(Uq, -(voltage_power_supply)/<span class="number">2</span>, (voltage_power_supply)/<span class="number">2</span>);</span><br><span class="line">  <span class="type">float</span> Ud = <span class="number">0</span>;  <span class="comment">// d轴电压设为0（最大转矩/电流比控制）</span></span><br><span class="line">  angle_el = _normalizeAngle(angle_el);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 帕克逆变换</span></span><br><span class="line">  <span class="type">float</span> Ualpha = -Uq*<span class="built_in">sin</span>(angle_el);</span><br><span class="line">  <span class="type">float</span> Ubeta = Uq*<span class="built_in">cos</span>(angle_el);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 保存给SMO使用</span></span><br><span class="line">  SMO_Ualpha = Ualpha;</span><br><span class="line">  SMO_Ubeta = Ubeta;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 克拉克逆变换（αβ → ABC）</span></span><br><span class="line">  <span class="type">float</span> Ua = Ualpha + voltage_power_supply/<span class="number">2</span>;</span><br><span class="line">  <span class="type">float</span> Ub = (<span class="built_in">sqrt</span>(<span class="number">3</span>)*Ubeta-Ualpha)/<span class="number">2</span> + voltage_power_supply/<span class="number">2</span>;</span><br><span class="line">  <span class="type">float</span> Uc = (-Ualpha-<span class="built_in">sqrt</span>(<span class="number">3</span>)*Ubeta)/<span class="number">2</span> + voltage_power_supply/<span class="number">2</span>;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">M0_setPwm</span>(Ua, Ub, Uc);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="3-1-2-克拉克变换（ABC-→-αβ）"><a href="#3-1-2-克拉克变换（ABC-→-αβ）" class="headerlink" title="3.1.2 克拉克变换（ABC → αβ）"></a>3.1.2 克拉克变换（ABC → αβ）</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">float</span> <span class="title">cal_Iq_Id</span><span class="params">(<span class="type">float</span> current_a, <span class="type">float</span> current_b, <span class="type">float</span> angle_el)</span> </span>&#123;</span><br><span class="line">  <span class="type">float</span> I_alpha = current_a;</span><br><span class="line">  <span class="type">float</span> I_beta = _1_SQRT3 * current_a + _2_SQRT3 * current_b;</span><br><span class="line"></span><br><span class="line">  <span class="type">float</span> ct = <span class="built_in">cos</span>(angle_el);</span><br><span class="line">  <span class="type">float</span> st = <span class="built_in">sin</span>(angle_el);</span><br><span class="line">  <span class="type">float</span> I_q = I_beta * ct - I_alpha * st;  <span class="comment">// 帕克变换</span></span><br><span class="line">  <span class="keyword">return</span> I_q;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="3-2-闭环控制函数"><a href="#3-2-闭环控制函数" class="headerlink" title="3.2 闭环控制函数"></a>3.2 闭环控制函数</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 电流闭环</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">DFOC_M0_setTorque</span><span class="params">(<span class="type">float</span> Target)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">M0_setTorque</span>(<span class="built_in">current_loop_M0</span>(Target - <span class="built_in">DFOC_M0_Current</span>()), <span class="built_in">S0_electricalAngle</span>());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 速度闭环</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">DFOC_M0_setVelocity</span><span class="params">(<span class="type">float</span> Target)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DFOC_M0_setTorque</span>(<span class="built_in">DFOC_M0_VEL_PID</span>((Target - <span class="built_in">DFOC_M0_Velocity</span>())*<span class="number">180</span>/PI));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 位置-速度闭环（串级控制）</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">DFOC_M0_set_Velocity_Angle</span><span class="params">(<span class="type">float</span> Target)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DFOC_M0_setTorque</span>(<span class="built_in">DFOC_M0_VEL_PID</span>(</span><br><span class="line">    <span class="built_in">DFOC_M0_ANGLE_PID</span>((Target - <span class="built_in">DFOC_M0_Angle</span>())*<span class="number">180</span>/PI) - <span class="built_in">DFOC_M0_Velocity</span>()</span><br><span class="line">  ));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="四、电流采样模块-InlineCurrent-cpp"><a href="#四、电流采样模块-InlineCurrent-cpp" class="headerlink" title="四、电流采样模块 (InlineCurrent.cpp)"></a>四、电流采样模块 (InlineCurrent.cpp)</h2><h3 id="4-1-硬件配置"><a href="#4-1-硬件配置" class="headerlink" title="4.1 硬件配置"></a>4.1 硬件配置</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">CurrSense::<span class="built_in">CurrSense</span>(<span class="type">int</span> Mot_Num) &#123;</span><br><span class="line">  <span class="keyword">if</span>(Mot_Num == <span class="number">0</span>) &#123;</span><br><span class="line">    pinA = <span class="number">39</span>;  <span class="comment">// M0 A相ADC</span></span><br><span class="line">    pinB = <span class="number">36</span>;  <span class="comment">// M0 B相ADC</span></span><br><span class="line">    _shunt_resistor = <span class="number">0.01</span>;  <span class="comment">// 10mΩ分流电阻</span></span><br><span class="line">    amp_gain = <span class="number">50</span>;           <span class="comment">// 运放增益50倍</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 计算电压-电流转换系数</span></span><br><span class="line">    volts_to_amps_ratio = <span class="number">1.0f</span> / _shunt_resistor / amp_gain;</span><br><span class="line">    gain_a = volts_to_amps_ratio;</span><br><span class="line">    gain_b = volts_to_amps_ratio;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// M1类似...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="4-2-ADC零点校准"><a href="#4-2-ADC零点校准" class="headerlink" title="4.2 ADC零点校准"></a>4.2 ADC零点校准</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">CurrSense::calibrateOffsets</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="type">const</span> <span class="type">int</span> calibration_rounds = <span class="number">1000</span>;</span><br><span class="line">  offset_ia = <span class="number">0</span>;</span><br><span class="line">  offset_ib = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 采样1000次求平均</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; calibration_rounds; i++) &#123;</span><br><span class="line">    offset_ia += <span class="built_in">readADCVoltageInline</span>(pinA);</span><br><span class="line">    offset_ib += <span class="built_in">readADCVoltageInline</span>(pinB);</span><br><span class="line">    <span class="built_in">delay</span>(<span class="number">1</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  offset_ia /= calibration_rounds;</span><br><span class="line">  offset_ib /= calibration_rounds;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="4-3-读取三相电流"><a href="#4-3-读取三相电流" class="headerlink" title="4.3 读取三相电流"></a>4.3 读取三相电流</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">CurrSense::getPhaseCurrents</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  current_a = (<span class="built_in">readADCVoltageInline</span>(pinA) - offset_ia) * gain_a;</span><br><span class="line">  current_b = (<span class="built_in">readADCVoltageInline</span>(pinB) - offset_ib) * gain_b;</span><br><span class="line">  current_c = (!_isset(pinC)) ? <span class="number">0</span> :</span><br><span class="line">              (<span class="built_in">readADCVoltageInline</span>(pinC) - offset_ic) * gain_c;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="五、PID控制器-pid-cpp"><a href="#五、PID控制器-pid-cpp" class="headerlink" title="五、PID控制器 (pid.cpp)"></a>五、PID控制器 (pid.cpp)</h2><h3 id="5-1-PID算法实现"><a href="#5-1-PID算法实现" class="headerlink" title="5.1 PID算法实现"></a>5.1 PID算法实现</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">float</span> <span class="title">PIDController::operator</span><span class="params">()</span><span class="params">(<span class="type">float</span> error)</span> </span>&#123;</span><br><span class="line">  <span class="type">unsigned</span> <span class="type">long</span> timestamp_now = <span class="built_in">micros</span>();</span><br><span class="line">  <span class="type">float</span> Ts = (timestamp_now - timestamp_prev) * <span class="number">1e-6f</span>;</span><br><span class="line">  <span class="keyword">if</span>(Ts &lt;= <span class="number">0</span> || Ts &gt; <span class="number">0.5f</span>) Ts = <span class="number">1e-3f</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// P环</span></span><br><span class="line">  <span class="type">float</span> proportional = P * error;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// I环（Tustin积分法）</span></span><br><span class="line">  <span class="type">float</span> integral = integral_prev + I*Ts*<span class="number">0.5f</span>*(error + error_prev);</span><br><span class="line">  integral = _constrain(integral, -limit, limit);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// D环</span></span><br><span class="line">  <span class="type">float</span> derivative = D*(error - error_prev)/Ts;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// PID输出</span></span><br><span class="line">  <span class="type">float</span> output = proportional + integral + derivative;</span><br><span class="line">  output = _constrain(output, -limit, limit);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 输出变化率限制</span></span><br><span class="line">  <span class="keyword">if</span>(output_ramp &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="type">float</span> output_rate = (output - output_prev)/Ts;</span><br><span class="line">    <span class="keyword">if</span> (output_rate &gt; output_ramp)</span><br><span class="line">      output = output_prev + output_ramp*Ts;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (output_rate &lt; -output_ramp)</span><br><span class="line">      output = output_prev - output_ramp*Ts;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 保存状态</span></span><br><span class="line">  integral_prev = integral;</span><br><span class="line">  output_prev = output;</span><br><span class="line">  error_prev = error;</span><br><span class="line">  timestamp_prev = timestamp_now;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> output;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="5-2-PID参数说明"><a href="#5-2-PID参数说明" class="headerlink" title="5.2 PID参数说明"></a>5.2 PID参数说明</h3><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+<th>推荐范围</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P</td>
+<td>比例增益</td>
+<td>0.01~10</td>
+<td>快速响应误差</td>
+</tr>
+<tr>
+<td>I</td>
+<td>积分增益</td>
+<td>0~500</td>
+<td>消除稳态误差</td>
+</tr>
+<tr>
+<td>D</td>
+<td>微分增益</td>
+<td>0~1</td>
+<td>抑制振荡</td>
+</tr>
+<tr>
+<td>ramp</td>
+<td>变化率限制</td>
+<td>1000~100000</td>
+<td>平滑输出</td>
+</tr>
+<tr>
+<td>limit</td>
+<td>输出限幅</td>
+<td>根据母线电压</td>
+<td>保护硬件</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="六、低通滤波器-lowpass-filter-cpp"><a href="#六、低通滤波器-lowpass-filter-cpp" class="headerlink" title="六、低通滤波器 (lowpass_filter.cpp)"></a>六、低通滤波器 (lowpass_filter.cpp)</h2><h3 id="6-1-一阶低通滤波器"><a href="#6-1-一阶低通滤波器" class="headerlink" title="6.1 一阶低通滤波器"></a>6.1 一阶低通滤波器</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">float</span> <span class="title">LowPassFilter::operator</span><span class="params">()</span><span class="params">(<span class="type">float</span> x)</span> </span>&#123;</span><br><span class="line">  <span class="type">unsigned</span> <span class="type">long</span> timestamp = <span class="built_in">micros</span>();</span><br><span class="line">  <span class="type">float</span> dt = (timestamp - timestamp_prev)*<span class="number">1e-6f</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (dt &lt; <span class="number">0.0f</span>) dt = <span class="number">1e-3f</span>;</span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span>(dt &gt; <span class="number">0.3f</span>) &#123;</span><br><span class="line">    y_prev = x;  <span class="comment">// 超时重置</span></span><br><span class="line">    timestamp_prev = timestamp;</span><br><span class="line">    <span class="keyword">return</span> x;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 滤波器系数：α = Tf/(Tf + dt)</span></span><br><span class="line">  <span class="type">float</span> alpha = Tf/(Tf + dt);</span><br><span class="line">  <span class="type">float</span> y = alpha*y_prev + (<span class="number">1.0f</span> - alpha)*x;</span><br><span class="line"></span><br><span class="line">  y_prev = y;</span><br><span class="line">  timestamp_prev = timestamp;</span><br><span class="line">  <span class="keyword">return</span> y;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>传递函数</strong>：H(s) = 1/(1 + s·Tf)</p>
+<p><strong>截止频率</strong>：fc = 1/(2π·Tf)</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>应用</th>
+<th>Tf值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>速度滤波</td>
+<td>0.01s</td>
+<td>截止频率约16Hz</td>
+</tr>
+<tr>
+<td>电流滤波</td>
+<td>0.002s</td>
+<td>截止频率约80Hz</td>
+</tr>
+<tr>
+<td>SMO速度滤波</td>
+<td>0.05s</td>
+<td>截止频率约3Hz</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="七、编码器传感器-AS5600-cpp"><a href="#七、编码器传感器-AS5600-cpp" class="headerlink" title="七、编码器传感器 (AS5600.cpp)"></a>七、编码器传感器 (AS5600.cpp)</h2><h3 id="7-1-AS5600读取"><a href="#7-1-AS5600读取" class="headerlink" title="7.1 AS5600读取"></a>7.1 AS5600读取</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">double</span> <span class="title">Sensor_AS5600::getSensorAngle</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="type">uint8_t</span> angle_reg_msb = <span class="number">0x0C</span>;</span><br><span class="line">  byte readArray[<span class="number">2</span>];</span><br><span class="line"></span><br><span class="line">  <span class="comment">// I2C通信读取角度寄存器</span></span><br><span class="line">  wire-&gt;<span class="built_in">beginTransmission</span>(<span class="number">0x36</span>);  <span class="comment">// AS5600地址</span></span><br><span class="line">  wire-&gt;<span class="built_in">write</span>(angle_reg_msb);</span><br><span class="line">  wire-&gt;<span class="built_in">endTransmission</span>(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">  wire-&gt;<span class="built_in">requestFrom</span>(<span class="number">0x36</span>, (<span class="type">uint8_t</span>)<span class="number">2</span>);</span><br><span class="line">  <span class="keyword">for</span> (byte i=<span class="number">0</span>; i &lt; <span class="number">2</span>; i++) &#123;</span><br><span class="line">    readArray[i] = wire-&gt;<span class="built_in">read</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 12位角度解码</span></span><br><span class="line">  <span class="type">int</span> _bit_resolution = <span class="number">12</span>;</span><br><span class="line">  <span class="type">int</span> _bits_used_msb = <span class="number">11</span><span class="number">-7</span>;</span><br><span class="line">  <span class="type">float</span> cpr = <span class="built_in">pow</span>(<span class="number">2</span>, _bit_resolution);</span><br><span class="line">  <span class="type">int</span> lsb_used = _bit_resolution - _bits_used_msb;</span><br><span class="line"></span><br><span class="line">  <span class="type">uint8_t</span> lsb_mask = (<span class="type">uint8_t</span>)((<span class="number">2</span> &lt;&lt; lsb_used) - <span class="number">1</span>);</span><br><span class="line">  <span class="type">uint8_t</span> msb_mask = (<span class="type">uint8_t</span>)((<span class="number">2</span> &lt;&lt; _bits_used_msb) - <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">  <span class="type">uint16_t</span> readValue = (readArray[<span class="number">1</span>] &amp; lsb_mask);</span><br><span class="line">  readValue += ((readArray[<span class="number">0</span>] &amp; msb_mask) &lt;&lt; lsb_used);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> (readValue/(<span class="type">float</span>)cpr) * _2PI;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="7-2-传感器校准"><a href="#7-2-传感器校准" class="headerlink" title="7.2 传感器校准"></a>7.2 传感器校准</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">DFOC_M0_alignSensor</span><span class="params">(<span class="type">int</span> _PP, <span class="type">int</span> _DIR)</span> </span>&#123;</span><br><span class="line">  M0_PP = _PP;</span><br><span class="line">  M0_DIR = _DIR;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 施加已知电压矢量使电机对齐到d轴</span></span><br><span class="line">  <span class="built_in">M0_setTorque</span>(<span class="number">3</span>, _3PI_2);</span><br><span class="line">  <span class="built_in">delay</span>(<span class="number">1000</span>);</span><br><span class="line"></span><br><span class="line">  S<span class="number">0.</span><span class="built_in">Sensor_update</span>();</span><br><span class="line">  S0_zero_electric_angle = <span class="built_in">S0_electricalAngle</span>();  <span class="comment">// 记录零点偏移</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">M0_setTorque</span>(<span class="number">0</span>, _3PI_2);  <span class="comment">// 释放</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="八、主控制循环-runFOC"><a href="#八、主控制循环-runFOC" class="headerlink" title="八、主控制循环 runFOC()"></a>八、主控制循环 runFOC()</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">runFOC</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 1. 更新传感器</span></span><br><span class="line">  S<span class="number">0.</span><span class="built_in">Sensor_update</span>();</span><br><span class="line">  CS_M<span class="number">0.</span><span class="built_in">getPhaseCurrents</span>();  <span class="comment">// 读取电流</span></span><br><span class="line">  CS_M<span class="number">1.</span><span class="built_in">getPhaseCurrents</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 2. 运行SMO估算器</span></span><br><span class="line">  <span class="built_in">SMO_position_estimate</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 3. 更新SMO角度和速度</span></span><br><span class="line">  <span class="built_in">SMOThetaUpdate</span>();</span><br><span class="line">  SMO_Vel = <span class="built_in">SMO_Vel_Flter</span>(<span class="built_in">getSMOVel</span>());</span><br><span class="line">  <span class="built_in">getSMOTheta</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 4. 调试输出</span></span><br><span class="line">  <span class="keyword">if</span> (cntt++ &gt; <span class="number">20</span>) &#123;</span><br><span class="line">    cntt = <span class="number">0</span>;</span><br><span class="line">    Serial.<span class="built_in">printf</span>(<span class="string">&quot;%f,%f\n&quot;</span>, SMO_Vel, <span class="built_in">DFOC_M0_Velocity</span>());</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="九、控制框图"><a href="#九、控制框图" class="headerlink" title="九、控制框图"></a>九、控制框图</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                        FOC控制框图                                │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br><span class="line"></span><br><span class="line">    目标值</span><br><span class="line">      │</span><br><span class="line">      ▼</span><br><span class="line">   [PID控制器] ────► Uq</span><br><span class="line">      │</span><br><span class="line">      ▼</span><br><span class="line">   [帕克逆变换] ────► Uα, Uβ ───► [SMO] ───► 估算θ, ω</span><br><span class="line">      │                                   │</span><br><span class="line">      ▼                                   │</span><br><span class="line">   [克拉克逆变换] ────► Ua, Ub, Uc        │</span><br><span class="line">      │                                   │</span><br><span class="line">      ▼                                   │</span><br><span class="line">   [PWM输出] ────────► [电机] ────────────┘</span><br><span class="line">      │                   │</span><br><span class="line">      ▼                   ▼</span><br><span class="line">   [电流采样] ◄────────  实际Ia, Ib</span><br><span class="line">      │</span><br><span class="line">      ▼</span><br><span class="line">   [克拉克变换] ────► Iα, Iβ</span><br><span class="line">      │</span><br><span class="line">      ▼</span><br><span class="line">   [帕克变换] ──────► Iq</span><br><span class="line">      │</span><br><span class="line">      └───────► 反馈给PID</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="十、参数调试指南"><a href="#十、参数调试指南" class="headerlink" title="十、参数调试指南"></a>十、参数调试指南</h2><h3 id="10-1-电机参数（必须根据实际电机修改）"><a href="#10-1-电机参数（必须根据实际电机修改）" class="headerlink" title="10.1 电机参数（必须根据实际电机修改）"></a>10.1 电机参数（必须根据实际电机修改）</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">float</span> Rs = <span class="number">8.25</span>;      <span class="comment">// 定子电阻，用万用表测量相电阻</span></span><br><span class="line"><span class="type">float</span> Ls = <span class="number">0.004256</span>;  <span class="comment">// 定子电感，使用电桥表测量</span></span><br></pre></td></tr></table></figure>
+<h3 id="10-2-SMO参数"><a href="#10-2-SMO参数" class="headerlink" title="10.2 SMO参数"></a>10.2 SMO参数</h3><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>推荐值</th>
+<th>调整说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>h（滑模增益）</td>
+<td>0.1~1.0</td>
+<td>太小收敛慢，太大抖动大</td>
+</tr>
+<tr>
+<td>反电动势滤波系数</td>
+<td>0.1~0.3</td>
+<td>影响位置估算平滑度</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="10-3-PID调试步骤"><a href="#10-3-PID调试步骤" class="headerlink" title="10.3 PID调试步骤"></a>10.3 PID调试步骤</h3><ol>
+<li><p><strong>先调电流环</strong>：</p>
+<ul>
+<li>P从0.1开始逐步增大</li>
+<li>I设为0，观察电流响应</li>
+<li>增大I直到电流跟踪准确</li>
+</ul>
+</li>
+<li><p><strong>再调速度环</strong>：</p>
+<ul>
+<li>电流环稳定后</li>
+<li>P从小增大，观察速度响应</li>
+<li>适当增加I消除稳态误差</li>
+</ul>
+</li>
+</ol>
+<h3 id="10-4-常见问题"><a href="#10-4-常见问题" class="headerlink" title="10.4 常见问题"></a>10.4 常见问题</h3><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>可能原因</th>
+<th>解决方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>电机不转</td>
+<td>电流环P太小或电流采样错误</td>
+<td>检查offset校准，增大P</td>
+</tr>
+<tr>
+<td>转速抖动</td>
+<td>SMO增益h不当，滤波参数不对</td>
+<td>调整h和滤波系数</td>
+</tr>
+<tr>
+<td>失步</td>
+<td>速度环响应太慢</td>
+<td>增大速度环P、I</td>
+</tr>
+<tr>
+<td>电流过大</td>
+<td>PID积分累积过快</td>
+<td>降低I或增加ramp限制</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="十一、数学公式汇总"><a href="#十一、数学公式汇总" class="headerlink" title="十一、数学公式汇总"></a>十一、数学公式汇总</h2><h3 id="11-1-克拉克变换（ABC-→-αβ）"><a href="#11-1-克拉克变换（ABC-→-αβ）" class="headerlink" title="11.1 克拉克变换（ABC → αβ）"></a>11.1 克拉克变换（ABC → αβ）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Iα = Ia</span><br><span class="line">Iβ = (1/√3)·Ia + (2/√3)·Ib</span><br></pre></td></tr></table></figure>
+<h3 id="11-2-帕克变换（αβ-→-dq）"><a href="#11-2-帕克变换（αβ-→-dq）" class="headerlink" title="11.2 帕克变换（αβ → dq）"></a>11.2 帕克变换（αβ → dq）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Id = Iα·cosθ + Iβ·sinθ</span><br><span class="line">Iq = Iβ·cosθ - Iα·sinθ</span><br></pre></td></tr></table></figure>
+<h3 id="11-3-帕克逆变换（dq-→-αβ）"><a href="#11-3-帕克逆变换（dq-→-αβ）" class="headerlink" title="11.3 帕克逆变换（dq → αβ）"></a>11.3 帕克逆变换（dq → αβ）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Uα = -Uq·sinθ + Ud·cosθ</span><br><span class="line">Uβ = Uq·cosθ + Ud·sinθ</span><br></pre></td></tr></table></figure>
+<h3 id="11-4-SMO电流观测器"><a href="#11-4-SMO电流观测器" class="headerlink" title="11.4 SMO电流观测器"></a>11.4 SMO电流观测器</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">dÎα/dt = (-Rs·Îα + Uα - Eα) / Ls</span><br><span class="line">dÎβ/dt = (-Rs·Îβ + Uβ - Eβ) / Ls</span><br><span class="line"></span><br><span class="line">Eα = h·sat(Îα - Iα, limit)</span><br><span class="line">Eβ = h·sat(Îβ - Iβ, limit)</span><br></pre></td></tr></table></figure>
+<h3 id="11-5-角度估算"><a href="#11-5-角度估算" class="headerlink" title="11.5 角度估算"></a>11.5 角度估算</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">θest = -atan(Eα/Eβ)</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="十二、参考文献"><a href="#十二、参考文献" class="headerlink" title="十二、参考文献"></a>十二、参考文献</h2><ol>
+<li><p><strong>滑模观测器原理</strong>：</p>
+<ul>
+<li>“Sensorless Control of PMSM with Sliding Mode Observer”</li>
+<li>PMSM无传感器控制经典方法</li>
+</ul>
+</li>
+<li><p><strong>FOC基础</strong>：</p>
+<ul>
+<li>SimpleFOC项目</li>
+<li>Vesc开源项目</li>
+</ul>
+</li>
+<li><p><strong>作者信息</strong>：</p>
+<ul>
+<li>灯哥开源</li>
+<li>淘宝店铺：灯哥开源</li>
+<li>遵循GNU开源协议</li>
+</ul>
+</li>
+</ol>
+<hr>
+<p><em>文档生成日期：2026年3月</em><br><em>适用于：DengFOC V4 SMO滑模观测器例程</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://chulwa.github.io">隼</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://chulwa.github.io/2026/03/15/SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90%E6%96%87%E6%A1%A3/">https://chulwa.github.io/2026/03/15/SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90%E6%96%87%E6%A1%A3/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://chulwa.github.io" target="_blank">嵌入式笔记</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/FOC/">FOC</a><a class="post-meta__tags" href="/tags/%E7%94%B5%E6%9C%BA%E6%8E%A7%E5%88%B6/">电机控制</a><a class="post-meta__tags" href="/tags/SMO/">SMO</a></div><div class="post-share"><div class="social-share" data-image="/img/author-avatar.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://unpkg.com/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://unpkg.com/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/03/15/%E7%A2%8E%E7%A2%8E%E5%BF%B5/%E6%98%A5%E5%A4%A9%E4%B8%8E%E7%94%B5%E6%B5%81%E4%B9%8B%E9%97%B4/" title="春天与电流之间"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">春天与电流之间</div></div><div class="info-2"><div class="info-item-1">有时候我觉得，人其实并不需要太多宏大的意义。 把一盏灯修好，把一段程序调通，把晚风从阳台边等到屋里来，这些事情已经足够构成一天。很多时候，真正让人继续活下去的，并不是答案，而是一些很轻的东西，比如水烧开时的声音，比如凌晨两点忽然顺下来的思路，比如春天。 我越来越愿意相信，生活不是一部等待总结的小说。 它更像一张写到一半的纸，你在上面涂改、停顿、发呆，偶尔写下两句自己以后也未必懂的话。可即便如此，那张纸还是留下来了。 </div></div></div></a><a class="pagination-related" href="/2026/03/15/%E6%97%A0%E6%84%9FFOC%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/" title="无感FOC深度学习文档"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">无感FOC深度学习文档</div></div><div class="info-2"><div class="info-item-1">ESP32无感滑模FOC深度学习文档 基于灯哥DengFOC V4例程4：无感滑模完整控制例程包含滑模观测器、锁相环、SVPWM深度解析   目录 无感FOC基础理论 滑模观测器(SMO)深度解析 锁相环(PLL)深度解析 SVPWM深度解析 代码架构分析 核心模块详解 调参指南 常见问题与调试   1. 无感FOC基础理论1.1 什么是无感FOC？FOC（Field Oriented Control，磁场定向控制）是一种高效的电机控制方法。无感FOC是指不使用位置传感器（如编码器、霍尔传感器），而是通过观测器算法估算转子位置和速度的控制方式。 1.2 PMSM电机数学模型无感FOC的核心是利用电机的反电动势来估算转子位置。 电压方程（α-β坐标系）12Uα = Rs·Iα + Ls·(dIα/dt) + EαUβ = Rs·Iβ + Ls·(dIβ/dt) + Eβ 其中：  Uα, Uβ：定子电压 Iα, Iβ：定子电流 Rs：相电阻 Ls：相电感 Eα, Eβ：反电动势（关键！）  反电动势与转子位置的关系12Eα = -Ke·ω·sin(θ)Eβ = Ke·ω·cos(θ...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/03/15/%E6%97%A0%E6%84%9FFOC%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/" title="无感FOC深度学习文档"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-03-15</div><div class="info-item-2">无感FOC深度学习文档</div></div><div class="info-2"><div class="info-item-1">ESP32无感滑模FOC深度学习文档 基于灯哥DengFOC V4例程4：无感滑模完整控制例程包含滑模观测器、锁相环、SVPWM深度解析   目录 无感FOC基础理论 滑模观测器(SMO)深度解析 锁相环(PLL)深度解析 SVPWM深度解析 代码架构分析 核心模块详解 调参指南 常见问题与调试   1. 无感FOC基础理论1.1 什么是无感FOC？FOC（Field Oriented Control，磁场定向控制）是一种高效的电机控制方法。无感FOC是指不使用位置传感器（如编码器、霍尔传感器），而是通过观测器算法估算转子位置和速度的控制方式。 1.2 PMSM电机数学模型无感FOC的核心是利用电机的反电动势来估算转子位置。 电压方程（α-β坐标系）12Uα = Rs·Iα + Ls·(dIα/dt) + EαUβ = Rs·Iβ + Ls·(dIβ/dt) + Eβ 其中：  Uα, Uβ：定子电压 Iα, Iβ：定子电流 Rs：相电阻 Ls：相电感 Eα, Eβ：反电动势（关键！）  反电动势与转子位置的关系12Eα = -Ke·ω·sin(θ)Eβ = Ke·ω·cos(θ...</div></div></div></a><a class="pagination-related" href="/2026/03/15/%E6%97%A0%E6%84%9FFOC%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E6%96%87%E6%A1%A3/" title="无感FOC详细学习文档"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-03-15</div><div class="info-item-2">无感FOC详细学习文档</div></div><div class="info-2"><div class="info-item-1">ESP32无感滑模FOC详细学习文档 基于灯哥DengFOC V4例程4：无感滑模完整控制例程适合2208电机空载情况，其他电机需要自行调整参数   目录 无感FOC基础理论 滑模观测器(SMO)原理 代码架构分析 核心模块详解 调参指南 常见问题与调试   1. 无感FOC基础理论1.1 什么是无感FOC？FOC（Field Oriented Control，磁场定向控制）是一种高效的电机控制方法。无感FOC是指不使用位置传感器（如编码器、霍尔传感器），而是通过观测器算法估算转子位置和速度的控制方式。 1.2 为什么需要无感FOC？    有感FOC 无感FOC     需要额外传感器 无需传感器，成本低   启动可靠 启动需要特殊处理   位置精度高 位置有估算误差   适合高精度应用 适合成本敏感应用     1.3 PMSM电机数学模型无感FOC的核心是利用电机的反电动势来估算转子位置。 电压方程（α-β坐标系）12Uα = Rs·Iα + Ls·(dIα/dt) + EαUβ = Rs·Iβ + Ls·(dIβ/dt) + Eβ 其中：  Uα, Uβ：定子电压 Iα,...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/author-avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">隼</div><div class="author-info-description">隼。春天并不回答问题，我只负责把波形和情绪记下来。</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">19</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">27</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><a id="card-info-btn" href="/about/"><i class="fas fa-user-pen"></i><span>关于隼</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">这里记录嵌入式、FOC、电力电子，也记录那些没有结论的凌晨。</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#ESP32-%E6%97%A0%E6%84%9FFOC-SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90%E6%96%87%E6%A1%A3"><span class="toc-number">1.</span> <span class="toc-text">ESP32 无感FOC - SMO滑模观测器代码解析文档</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A1%B9%E7%9B%AE%E6%A6%82%E8%BF%B0"><span class="toc-number">1.1.</span> <span class="toc-text">项目概述</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%A1%AC%E4%BB%B6%E5%B9%B3%E5%8F%B0"><span class="toc-number">1.1.1.</span> <span class="toc-text">硬件平台</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7"><span class="toc-number">1.1.2.</span> <span class="toc-text">核心特性</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%87%E4%BB%B6%E7%BB%93%E6%9E%84"><span class="toc-number">1.2.</span> <span class="toc-text">文件结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E4%B8%BB%E7%A8%8B%E5%BA%8F-4-SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8-ino-%E8%AF%A6%E8%A7%A3"><span class="toc-number">1.3.</span> <span class="toc-text">一、主程序 (4_SMO滑模观测器.ino) 详解</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E5%85%A8%E5%B1%80%E5%8F%98%E9%87%8F%E5%AE%9A%E4%B9%89"><span class="toc-number">1.3.1.</span> <span class="toc-text">1.1 全局变量定义</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-setup-%E5%87%BD%E6%95%B0-%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">1.3.2.</span> <span class="toc-text">1.2 setup()函数 - 初始化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-loop-%E5%87%BD%E6%95%B0-%E4%B8%BB%E5%BE%AA%E7%8E%AF"><span class="toc-number">1.3.3.</span> <span class="toc-text">1.3 loop()函数 - 主循环</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81SMO%E6%BB%91%E6%A8%A1%E8%A7%82%E6%B5%8B%E5%99%A8%E6%A0%B8%E5%BF%83%E7%AE%97%E6%B3%95"><span class="toc-number">1.4.</span> <span class="toc-text">二、SMO滑模观测器核心算法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-SMO%E5%8E%9F%E7%90%86%E7%AE%80%E4%BB%8B"><span class="toc-number">1.4.1.</span> <span class="toc-text">2.1 SMO原理简介</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E6%A0%B8%E5%BF%83%E5%87%BD%E6%95%B0%EF%BC%9ASMO-position-estimate"><span class="toc-number">1.4.2.</span> <span class="toc-text">2.2 核心函数：SMO_position_estimate()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E9%A5%B1%E5%92%8C%E5%87%BD%E6%95%B0-sat"><span class="toc-number">1.4.3.</span> <span class="toc-text">2.3 饱和函数 sat()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-SMO%E9%80%9F%E5%BA%A6%E8%AE%A1%E7%AE%97"><span class="toc-number">1.4.4.</span> <span class="toc-text">2.4 SMO速度计算</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81FOC%E6%A0%B8%E5%BF%83%E6%8E%A7%E5%88%B6-DengFOC-cpp"><span class="toc-number">1.5.</span> <span class="toc-text">三、FOC核心控制 (DengFOC.cpp)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E5%9D%90%E6%A0%87%E5%8F%98%E6%8D%A2"><span class="toc-number">1.5.1.</span> <span class="toc-text">3.1 坐标变换</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-1-1-%E5%B8%95%E5%85%8B%E9%80%86%E5%8F%98%E6%8D%A2%EF%BC%88dq-%E2%86%92-%CE%B1%CE%B2%EF%BC%89"><span class="toc-number">1.5.1.1.</span> <span class="toc-text">3.1.1 帕克逆变换（dq → αβ）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-1-2-%E5%85%8B%E6%8B%89%E5%85%8B%E5%8F%98%E6%8D%A2%EF%BC%88ABC-%E2%86%92-%CE%B1%CE%B2%EF%BC%89"><span class="toc-number">1.5.1.2.</span> <span class="toc-text">3.1.2 克拉克变换（ABC → αβ）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E9%97%AD%E7%8E%AF%E6%8E%A7%E5%88%B6%E5%87%BD%E6%95%B0"><span class="toc-number">1.5.2.</span> <span class="toc-text">3.2 闭环控制函数</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E7%94%B5%E6%B5%81%E9%87%87%E6%A0%B7%E6%A8%A1%E5%9D%97-InlineCurrent-cpp"><span class="toc-number">1.6.</span> <span class="toc-text">四、电流采样模块 (InlineCurrent.cpp)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-%E7%A1%AC%E4%BB%B6%E9%85%8D%E7%BD%AE"><span class="toc-number">1.6.1.</span> <span class="toc-text">4.1 硬件配置</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-ADC%E9%9B%B6%E7%82%B9%E6%A0%A1%E5%87%86"><span class="toc-number">1.6.2.</span> <span class="toc-text">4.2 ADC零点校准</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-%E8%AF%BB%E5%8F%96%E4%B8%89%E7%9B%B8%E7%94%B5%E6%B5%81"><span class="toc-number">1.6.3.</span> <span class="toc-text">4.3 读取三相电流</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81PID%E6%8E%A7%E5%88%B6%E5%99%A8-pid-cpp"><span class="toc-number">1.7.</span> <span class="toc-text">五、PID控制器 (pid.cpp)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#5-1-PID%E7%AE%97%E6%B3%95%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.7.1.</span> <span class="toc-text">5.1 PID算法实现</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-2-PID%E5%8F%82%E6%95%B0%E8%AF%B4%E6%98%8E"><span class="toc-number">1.7.2.</span> <span class="toc-text">5.2 PID参数说明</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E4%BD%8E%E9%80%9A%E6%BB%A4%E6%B3%A2%E5%99%A8-lowpass-filter-cpp"><span class="toc-number">1.8.</span> <span class="toc-text">六、低通滤波器 (lowpass_filter.cpp)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#6-1-%E4%B8%80%E9%98%B6%E4%BD%8E%E9%80%9A%E6%BB%A4%E6%B3%A2%E5%99%A8"><span class="toc-number">1.8.1.</span> <span class="toc-text">6.1 一阶低通滤波器</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E7%BC%96%E7%A0%81%E5%99%A8%E4%BC%A0%E6%84%9F%E5%99%A8-AS5600-cpp"><span class="toc-number">1.9.</span> <span class="toc-text">七、编码器传感器 (AS5600.cpp)</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#7-1-AS5600%E8%AF%BB%E5%8F%96"><span class="toc-number">1.9.1.</span> <span class="toc-text">7.1 AS5600读取</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-2-%E4%BC%A0%E6%84%9F%E5%99%A8%E6%A0%A1%E5%87%86"><span class="toc-number">1.9.2.</span> <span class="toc-text">7.2 传感器校准</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E4%B8%BB%E6%8E%A7%E5%88%B6%E5%BE%AA%E7%8E%AF-runFOC"><span class="toc-number">1.10.</span> <span class="toc-text">八、主控制循环 runFOC()</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E6%8E%A7%E5%88%B6%E6%A1%86%E5%9B%BE"><span class="toc-number">1.11.</span> <span class="toc-text">九、控制框图</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E5%8F%82%E6%95%B0%E8%B0%83%E8%AF%95%E6%8C%87%E5%8D%97"><span class="toc-number">1.12.</span> <span class="toc-text">十、参数调试指南</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#10-1-%E7%94%B5%E6%9C%BA%E5%8F%82%E6%95%B0%EF%BC%88%E5%BF%85%E9%A1%BB%E6%A0%B9%E6%8D%AE%E5%AE%9E%E9%99%85%E7%94%B5%E6%9C%BA%E4%BF%AE%E6%94%B9%EF%BC%89"><span class="toc-number">1.12.1.</span> <span class="toc-text">10.1 电机参数（必须根据实际电机修改）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#10-2-SMO%E5%8F%82%E6%95%B0"><span class="toc-number">1.12.2.</span> <span class="toc-text">10.2 SMO参数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#10-3-PID%E8%B0%83%E8%AF%95%E6%AD%A5%E9%AA%A4"><span class="toc-number">1.12.3.</span> <span class="toc-text">10.3 PID调试步骤</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#10-4-%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">1.12.4.</span> <span class="toc-text">10.4 常见问题</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E4%B8%80%E3%80%81%E6%95%B0%E5%AD%A6%E5%85%AC%E5%BC%8F%E6%B1%87%E6%80%BB"><span class="toc-number">1.13.</span> <span class="toc-text">十一、数学公式汇总</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#11-1-%E5%85%8B%E6%8B%89%E5%85%8B%E5%8F%98%E6%8D%A2%EF%BC%88ABC-%E2%86%92-%CE%B1%CE%B2%EF%BC%89"><span class="toc-number">1.13.1.</span> <span class="toc-text">11.1 克拉克变换（ABC → αβ）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#11-2-%E5%B8%95%E5%85%8B%E5%8F%98%E6%8D%A2%EF%BC%88%CE%B1%CE%B2-%E2%86%92-dq%EF%BC%89"><span class="toc-number">1.13.2.</span> <span class="toc-text">11.2 帕克变换（αβ → dq）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#11-3-%E5%B8%95%E5%85%8B%E9%80%86%E5%8F%98%E6%8D%A2%EF%BC%88dq-%E2%86%92-%CE%B1%CE%B2%EF%BC%89"><span class="toc-number">1.13.3.</span> <span class="toc-text">11.3 帕克逆变换（dq → αβ）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#11-4-SMO%E7%94%B5%E6%B5%81%E8%A7%82%E6%B5%8B%E5%99%A8"><span class="toc-number">1.13.4.</span> <span class="toc-text">11.4 SMO电流观测器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#11-5-%E8%A7%92%E5%BA%A6%E4%BC%B0%E7%AE%97"><span class="toc-number">1.13.5.</span> <span class="toc-text">11.5 角度估算</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E4%BA%8C%E3%80%81%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">1.14.</span> <span class="toc-text">十二、参考文献</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E7%A2%8E%E7%A2%8E%E5%BF%B5/%E4%B8%8D%E7%9B%B8%E4%BF%A1%E6%84%8F%E4%B9%89%EF%BC%8C%E4%BD%86%E6%88%91%E7%83%AD%E7%88%B1%E6%98%A5%E5%A4%A9/" title="不相信意义，但我热爱春天">不相信意义，但我热爱春天</a><time datetime="2026-03-15T15:14:00.000Z" title="发表于 2026-03-15 23:14:00">2026-03-15</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E9%A9%AC%E5%AD%94%E5%A4%9A%E7%9A%84%E9%A3%8E%EF%BC%9A%E4%B8%80%E7%99%BE%E5%B9%B4%E7%9A%84%E5%AD%A4%E7%8B%AC%E4%B8%8E%E5%BE%AA%E7%8E%AF/" title="马孔多的风：一百年的孤独与循环">马孔多的风：一百年的孤独与循环</a><time datetime="2026-03-15T15:13:00.000Z" title="发表于 2026-03-15 23:13:00">2026-03-15</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E9%BA%A6%E7%94%B0%E8%BE%B9%E7%BC%98%E7%9A%84%E5%AE%88%E6%9C%9B%EF%BC%9A%E6%8B%92%E7%BB%9D%E6%AF%8F%E4%B8%80%E4%B8%AA%E4%BC%AA%E5%96%84%E7%9A%84%E7%9E%AC%E9%97%B4/" title="麦田边缘的守望：拒绝每一个伪善的瞬间">麦田边缘的守望：拒绝每一个伪善的瞬间</a><time datetime="2026-03-15T15:12:00.000Z" title="发表于 2026-03-15 23:12:00">2026-03-15</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E6%9E%AF%E4%BA%95%E3%80%81%E5%8F%91%E6%9D%A1%E9%B8%9F%E4%B8%8E%E6%97%A0%E5%A3%B0%E7%9A%84%E6%8A%97%E4%BA%89/" title="枯井、发条鸟与无声的抗争">枯井、发条鸟与无声的抗争</a><time datetime="2026-03-15T15:11:00.000Z" title="发表于 2026-03-15 23:11:00">2026-03-15</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E5%9B%9B%E5%8F%A0%E5%8D%8A%E7%9A%84%E7%A5%9E%E8%AF%9D%E5%A4%A7%E7%B3%BB%EF%BC%9A%E7%8E%AB%E7%91%B0%E8%89%B2%E7%9A%84%E6%A0%A1%E5%9B%AD%E7%94%9F%E6%B4%BB%E5%8F%AA%E5%9C%A8%E6%A2%A6%E9%87%8C/" title="四叠半的神话大系：玫瑰色的校园生活只在梦里">四叠半的神话大系：玫瑰色的校园生活只在梦里</a><time datetime="2026-03-15T15:10:00.000Z" title="发表于 2026-03-15 23:10:00">2026-03-15</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 隼</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><div class="js-pjax"><script>(() => {
+  const loadMathjax = () => {
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'ams',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          enableMenu: false,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+          renderActions: {
+            findScript: [10, doc => {
+              for (const node of document.querySelectorAll('script[type^="math/tex"]')) {
+                const display = !!node.type.match(/; *mode=display/)
+                const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display)
+                const text = document.createTextNode('')
+                node.parentNode.replaceChild(text, node)
+                math.start = {node: text, delim: '', n: 0}
+                math.end = {node: text, delim: '', n: 0}
+                doc.math.push(math)
+              }
+            }, '']
+          }
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://unpkg.com/mathjax@4.1.0/tex-mml-chtml.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.startup.document.state(0)
+      MathJax.texReset()
+      MathJax.typesetPromise()
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script></div><script defer src="/js/literature-corner.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="在风声和笔记里检索一段波形" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.5.4"></script></div></div></body></html>
