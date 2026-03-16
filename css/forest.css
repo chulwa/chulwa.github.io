@@ -1,7 +1,7 @@
 body {
   font-family: 'Noto Serif SC', 'PingFang SC', serif !important;
-  background: linear-gradient(180deg, #eef1ea 0%, #f6f3ec 38%, #f4efe8 100%) !important;
-  color: #2f342f;
+  background: var(--card-bg) !important;
+  color: var(--font-color);
 }
 
 .left-decorative-cards,
@@ -53,20 +53,20 @@ body.home-abbey #page-header {
 #site-title {
   font-size: 2.9rem !important;
   letter-spacing: 0.12em;
-  color: #f6f3ec !important;
+  color: var(--font-color) !important;
   text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.82), 0 0 28px rgba(0, 0, 0, 0.36);
 }
 
 #site-subtitle,
 #subtitle {
-  color: rgba(246, 243, 236, 0.92) !important;
+  color: var(--font-color) !important;
   text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 18px rgba(0, 0, 0, 0.34);
 }
 
 #site-info {
   padding: 1.2rem 1.6rem;
   background: rgba(24, 31, 27, 0.18) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--border-color);
   border-radius: 18px;
   backdrop-filter: blur(8px);
 }
@@ -76,8 +76,8 @@ body.home-abbey #page-header {
 div#post,
 div#page,
 div#archive {
-  background: rgba(255, 252, 246, 0.82) !important;
-  border: 1px solid rgba(80, 92, 78, 0.1);
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-color);
   border-radius: 18px !important;
   box-shadow: 0 18px 40px rgba(53, 61, 54, 0.08) !important;
 }
@@ -105,23 +105,23 @@ div#archive {
 #aside-content .site-data > a .headline,
 .article-title,
 #page .page-title {
-  color: #243128 !important;
+  color: var(--font-color) !important;
 }
 
 a,
 #article-container a {
-  color: #5d735f;
+  color: var(--font-color);
 }
 
 #article-container a:hover {
-  color: #2f4a36;
+  color: var(--font-color);
 }
 
 #article-container h1,
 #article-container h2,
 #article-container h3,
 #article-container h4 {
-  color: #2c352d;
+  color: var(--font-color);
   letter-spacing: 0.03em;
 }
 
@@ -284,8 +284,8 @@ body.literature-corner-post #article-container blockquote {
 }
 
 body.literature-corner-post #article-container blockquote {
-  border-left: 4px solid #f0ab4f;
-  background: rgba(255, 247, 231, 0.78);
+  border-left: 4px solid var(--border-color);
+  background: var(--card-bg);
 }
 
 #literature-random-card .literature-random-inner {
@@ -296,12 +296,12 @@ body.literature-corner-post #article-container blockquote {
 
 #literature-random-card .literature-random-link {
   font-weight: 700;
-  color: #314d37;
+  color: var(--font-color);
 }
 
 #literature-random-card .literature-random-text {
   margin: 0;
-  color: #5a665a;
+  color: var(--font-color);
   line-height: 1.8;
 }
 
@@ -317,4 +317,54 @@ body.literature-corner-post #article-container blockquote {
   #aside-content {
     max-width: 100%;
   }
+}
+
+/* Professional style for Dark Mode adaptation */
+[data-theme='dark'] {
+  /* 稍微调亮卡片背景，让它从纯黑背景中跳出来 */
+  --card-bg: #1e1e1e !important;
+  --body-bg: #121212 !important;
+
+  /* 降低 Abbey Road 封面的亮度，防止刺眼 */
+  #page-header {
+    filter: brightness(0.7) contrast(1.1) !important;
+  }
+
+  /* 调整文学角落的高饱和色块，使其更深邃 */
+  .poetry-mosaics {
+    filter: saturate(0.8) brightness(0.6);
+  }
+
+  /* 确保代码块和卡片阴影在深色背景下不产生“脏感” */
+  .recent-post-item,
+  .card-widget {
+    border: 1px solid rgba(0, 255, 0, 0.05) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* 针对点灯文章的呼吸灯特效进行暗部优化 */
+  .first-light-post {
+    animation: led-glow-dark 3s infinite ease-in-out;
+  }
+}
+
+/* 让最新文章列表不再排得那么紧 */
+#aside-content .aside-list-item {
+  padding: 10px 0 !important;
+}
+
+/* 调整分类页标题在暗色下的亮度，防止太刺眼 */
+.category-pannel__title {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+[data-theme='dark'] #pagination .page-number.current {
+  background: #2d5a52 !important;
+  color: #fff !important;
+}
+
+@keyframes led-glow-dark {
+  0% { box-shadow: 0 0 5px rgba(0, 255, 0, 0.1); }
+  50% { box-shadow: 0 0 20px rgba(0, 255, 0, 0.4); }
+  100% { box-shadow: 0 0 5px rgba(0, 255, 0, 0.1); }
 }
