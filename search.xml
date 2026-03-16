@@ -172,141 +172,6 @@
       </tags>
   </entry>
   <entry>
-    <title>定时器配置与使用</title>
-    <url>/2025/12/02/02_TIMER/</url>
-    <content><![CDATA[<h1 id="CPU定时器配置与使用"><a href="#CPU定时器配置与使用" class="headerlink" title="CPU定时器配置与使用"></a>CPU定时器配置与使用</h1><h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
-<li><a href="#定时器基础">定时器基础</a></li>
-<li><a href="#与stm32对比">与STM32对比</a></li>
-<li><a href="#定时器寄存器">定时器寄存器</a></li>
-<li><a href="#手动配置定时器">手动配置定时器</a></li>
-<li><a href="#sysconfig配置定时器">SysConfig配置定时器</a></li>
-<li><a href="#实战示例">实战示例</a></li>
-</ol>
-<hr>
-<h2 id="定时器基础"><a href="#定时器基础" class="headerlink" title="定时器基础"></a>定时器基础</h2><p>F280049C有3个32位CPU定时器：</p>
-<ul>
-<li><strong>Timer0</strong>: 保留给实时操作系统（RTOS）使用</li>
-<li><strong>Timer1</strong>: 用户可用</li>
-<li><strong>Timer2</strong>: 用户可用</li>
-</ul>
-<h3 id="定时器特性"><a href="#定时器特性" class="headerlink" title="定时器特性"></a>定时器特性</h3><ul>
-<li><strong>位宽</strong>: 32位递减计数器</li>
-<li><strong>时钟源</strong>: SYSCLK（系统时钟）</li>
-<li><strong>预分频</strong>: 16位预分频器（1-65536）</li>
-<li><strong>中断</strong>: 每个定时器有独立中断</li>
-<li><strong>工作模式</strong>: 连续模式或单次模式</li>
-</ul>
-<h3 id="定时器工作原理"><a href="#定时器工作原理" class="headerlink" title="定时器工作原理"></a>定时器工作原理</h3><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">SYSCLK → 预分频器 → 32位计数器 → 中断</span><br><span class="line">         (÷N)      (递减到0)</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="与STM32对比"><a href="#与STM32对比" class="headerlink" title="与STM32对比"></a>与STM32对比</h2><h3 id="定时器类型对比"><a href="#定时器类型对比" class="headerlink" title="定时器类型对比"></a>定时器类型对比</h3><div class="table-container">
-<table>
-<thead>
-<tr>
-<th>特性</th>
-<th>STM32</th>
-<th>F280049C</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>定时器类型</td>
-<td>基本/通用/高级定时器</td>
-<td>CPU定时器</td>
-</tr>
-<tr>
-<td>计数方向</td>
-<td>向上/向下/中心对齐</td>
-<td>仅向下计数</td>
-</tr>
-<tr>
-<td>位宽</td>
-<td>16位/32位</td>
-<td>32位</td>
-</tr>
-<tr>
-<td>PWM功能</td>
-<td>支持</td>
-<td>不支持（使用ePWM）</td>
-</tr>
-<tr>
-<td>输入捕获</td>
-<td>支持</td>
-<td>不支持</td>
-</tr>
-</tbody>
-</table>
-</div>
-<h3 id="配置流程对比"><a href="#配置流程对比" class="headerlink" title="配置流程对比"></a>配置流程对比</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// STM32 HAL库</span></span><br><span class="line">TIM_HandleTypeDef htim2;</span><br><span class="line">htim2.Instance = TIM2;</span><br><span class="line">htim2.Init.Prescaler = <span class="number">99</span>;</span><br><span class="line">htim2.Init.Period = <span class="number">999</span>;</span><br><span class="line">HAL_TIM_Base_Init(&amp;htim2);</span><br><span class="line">HAL_TIM_Base_Start_IT(&amp;htim2);</span><br><span class="line"></span><br><span class="line"><span class="comment">// F280049C DriverLib</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line">CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line">CPUTimer_startTimer(CPUTIMER1_BASE);</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="定时器寄存器"><a href="#定时器寄存器" class="headerlink" title="定时器寄存器"></a>定时器寄存器</h2><h3 id="主要寄存器"><a href="#主要寄存器" class="headerlink" title="主要寄存器"></a>主要寄存器</h3><h4 id="1-TIMERxTIM-计数器寄存器"><a href="#1-TIMERxTIM-计数器寄存器" class="headerlink" title="1. TIMERxTIM - 计数器寄存器"></a>1. <strong>TIMERxTIM - 计数器寄存器</strong></h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">CpuTimer1Regs.TIM.all = <span class="number">0xFFFFFFFF</span>;  <span class="comment">// 设置计数初值</span></span><br></pre></td></tr></table></figure>
-<h4 id="2-TIMERxPRD-周期寄存器"><a href="#2-TIMERxPRD-周期寄存器" class="headerlink" title="2. TIMERxPRD - 周期寄存器"></a>2. <strong>TIMERxPRD - 周期寄存器</strong></h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">CpuTimer1Regs.PRD.all = <span class="number">100000000</span>;  <span class="comment">// 设置周期值</span></span><br></pre></td></tr></table></figure>
-<h4 id="3-TIMERxTPR-预分频寄存器"><a href="#3-TIMERxTPR-预分频寄存器" class="headerlink" title="3. TIMERxTPR - 预分频寄存器"></a>3. <strong>TIMERxTPR - 预分频寄存器</strong></h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">CpuTimer1Regs.TPR.bit.TDDR = <span class="number">0</span>;     <span class="comment">// 预分频值</span></span><br><span class="line">CpuTimer1Regs.TPR.bit.PSC = <span class="number">0</span>;      <span class="comment">// 预分频计数器</span></span><br></pre></td></tr></table></figure>
-<h4 id="4-TIMERxTCR-控制寄存器"><a href="#4-TIMERxTCR-控制寄存器" class="headerlink" title="4. TIMERxTCR - 控制寄存器"></a>4. <strong>TIMERxTCR - 控制寄存器</strong></h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">CpuTimer1Regs.TCR.bit.TSS = <span class="number">0</span>;      <span class="comment">// 0=启动, 1=停止</span></span><br><span class="line">CpuTimer1Regs.TCR.bit.TRB = <span class="number">1</span>;      <span class="comment">// 1=重载计数器</span></span><br><span class="line">CpuTimer1Regs.TCR.bit.TIE = <span class="number">1</span>;      <span class="comment">// 1=使能中断</span></span><br><span class="line">CpuTimer1Regs.TCR.bit.FREE = <span class="number">1</span>;     <span class="comment">// 调试时继续运行</span></span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="手动配置定时器"><a href="#手动配置定时器" class="headerlink" title="手动配置定时器"></a>手动配置定时器</h2><h3 id="方法1-直接寄存器操作"><a href="#方法1-直接寄存器操作" class="headerlink" title="方法1: 直接寄存器操作"></a>方法1: 直接寄存器操作</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;F28x_Project.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 定时器中断服务函数</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpu_timer1_isr</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 翻转LED</span></span><br><span class="line">    GpioDataRegs.GPATOGGLE.bit.GPIO31 = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 清除中断标志</span></span><br><span class="line">    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Timer1_Init_Register</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    EALLOW;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1. 停止定时器</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.TSS = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 设置预分频器（SYSCLK = 100MHz）</span></span><br><span class="line">    CpuTimer1Regs.TPR.bit.TDDR = <span class="number">0</span>;  <span class="comment">// 预分频 = TDDR + 1 = 1</span></span><br><span class="line">    CpuTimer1Regs.TPR.bit.PSC = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 设置周期（1秒 = 100,000,000个时钟周期）</span></span><br><span class="line">    CpuTimer1Regs.PRD.all = <span class="number">100000000</span> - <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 4. 重载计数器</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.TRB = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 5. 配置为连续模式</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.FREE = <span class="number">1</span>;</span><br><span class="line">    CpuTimer1Regs.TCR.bit.SOFT = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 6. 使能定时器中断</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.TIE = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 7. 配置PIE中断</span></span><br><span class="line">    PieVectTable.TIMER1_INT = &amp;cpu_timer1_isr;</span><br><span class="line">    PieCtrlRegs.PIEIER1.bit.INTx7 = <span class="number">1</span>;</span><br><span class="line">    IER |= M_INT1;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 8. 启动定时器</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.TSS = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    EDIS;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h3 id="方法2-DriverLib库函数"><a href="#方法2-DriverLib库函数" class="headerlink" title="方法2: DriverLib库函数"></a>方法2: DriverLib库函数</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 定时器中断服务函数</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    GPIO_togglePin(<span class="number">31</span>);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Timer1_Init_DriverLib</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 1. 初始化定时器（100MHz系统时钟）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 设置周期（1秒 = 100,000,000个时钟周期）</span></span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000000</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 设置预分频器（0 = 不分频）</span></span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 4. 重载计数器</span></span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 5. 配置为连续模式</span></span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 6. 使能定时器中断</span></span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 7. 注册中断服务函数</span></span><br><span class="line">    Interrupt_register(INT_TIMER1, &amp;cpuTimer1ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 8. 启动定时器</span></span><br><span class="line">    CPUTimer_startTimer(CPUTIMER1_BASE);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h3 id="定时周期计算"><a href="#定时周期计算" class="headerlink" title="定时周期计算"></a>定时周期计算</h3><h4 id="公式"><a href="#公式" class="headerlink" title="公式"></a>公式</h4><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">定时周期(秒) = (PRD + 1) × (TDDR + 1) / SYSCLK</span><br></pre></td></tr></table></figure>
-<h4 id="示例计算"><a href="#示例计算" class="headerlink" title="示例计算"></a>示例计算</h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// SYSCLK = 100MHz</span></span><br><span class="line"><span class="comment">// 需要1ms定时</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 方法1: 不使用预分频</span></span><br><span class="line">PRD = <span class="number">100</span>MHz × <span class="number">0.001</span>s - <span class="number">1</span> = <span class="number">100</span>,<span class="number">000</span> - <span class="number">1</span> = <span class="number">99</span>,<span class="number">999</span></span><br><span class="line">TDDR = <span class="number">0</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 方法2: 使用预分频</span></span><br><span class="line">PRD = <span class="number">10</span>,<span class="number">000</span> - <span class="number">1</span> = <span class="number">9</span>,<span class="number">999</span></span><br><span class="line">TDDR = <span class="number">10</span> - <span class="number">1</span> = <span class="number">9</span>  <span class="comment">// 预分频10</span></span><br></pre></td></tr></table></figure>
-<h4 id="常用定时周期配置"><a href="#常用定时周期配置" class="headerlink" title="常用定时周期配置"></a>常用定时周期配置</h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 1ms定时（SYSCLK = 100MHz）</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 10ms定时</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">1000000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 100ms定时</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">10000000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 1秒定时</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="SysConfig配置定时器"><a href="#SysConfig配置定时器" class="headerlink" title="SysConfig配置定时器"></a>SysConfig配置定时器</h2><h3 id="步骤1-添加CPU-Timer"><a href="#步骤1-添加CPU-Timer" class="headerlink" title="步骤1: 添加CPU Timer"></a>步骤1: 添加CPU Timer</h3><ol>
-<li>在SysConfig中找到 <strong>CPUTIMER</strong></li>
-<li>点击 <strong>“+”</strong> 添加定时器实例</li>
-<li>选择 <strong>CPUTIMER1</strong> 或 <strong>CPUTIMER2</strong></li>
-</ol>
-<h3 id="步骤2-配置参数"><a href="#步骤2-配置参数" class="headerlink" title="步骤2: 配置参数"></a>步骤2: 配置参数</h3><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPUTIMER Instance: CPUTIMER1</span><br><span class="line">├── Timer Period (μs): 1000  (1ms)</span><br><span class="line">├── Enable Interrupt: ✓</span><br><span class="line">├── Emulation Mode: Run Free</span><br><span class="line">└── Start Timer: ✓</span><br></pre></td></tr></table></figure>
-<h3 id="步骤3-配置中断"><a href="#步骤3-配置中断" class="headerlink" title="步骤3: 配置中断"></a>步骤3: 配置中断</h3><p>在 <strong>Interrupt</strong> 模块中：<br><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">├── Enable INT_TIMER1: ✓</span><br><span class="line">└── Register Interrupt Handler: ✓</span><br></pre></td></tr></table></figure></p>
-<h3 id="步骤4-使用生成的代码"><a href="#步骤4-使用生成的代码" class="headerlink" title="步骤4: 使用生成的代码"></a>步骤4: 使用生成的代码</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;board.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 中断服务函数（需要手动实现）</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">INT_myCPUTIMER1_ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    GPIO_togglePin(<span class="number">31</span>);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 调用SysConfig生成的初始化</span></span><br><span class="line">    Board_init();</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 主循环</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="实战示例"><a href="#实战示例" class="headerlink" title="实战示例"></a>实战示例</h2><h3 id="示例1-LED定时闪烁（1Hz）"><a href="#示例1-LED定时闪烁（1Hz）" class="headerlink" title="示例1: LED定时闪烁（1Hz）"></a>示例1: LED定时闪烁（1Hz）</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> LED_GPIO 31</span></span><br><span class="line"></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    GPIO_togglePin(LED_GPIO);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置LED</span></span><br><span class="line">    GPIO_setPadConfig(LED_GPIO, GPIO_PIN_TYPE_STD);</span><br><span class="line">    GPIO_setDirectionMode(LED_GPIO, GPIO_DIR_MODE_OUT);</span><br><span class="line">    GPIO_setPinConfig(GPIO_31_GPIO31);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置定时器1（500ms）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">50000000</span>);  <span class="comment">// 0.5秒</span></span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 注册中断</span></span><br><span class="line">    Interrupt_register(INT_TIMER1, &amp;cpuTimer1ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 启动定时器</span></span><br><span class="line">    CPUTimer_startTimer(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 主循环空闲</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h3 id="示例2-多定时器应用"><a href="#示例2-多定时器应用" class="headerlink" title="示例2: 多定时器应用"></a>示例2: 多定时器应用</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> LED1_GPIO 0</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> LED2_GPIO 1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">volatile</span> <span class="type">uint32_t</span> timer1_count = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">volatile</span> <span class="type">uint32_t</span> timer2_count = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 定时器1中断（100ms）</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    timer1_count++;</span><br><span class="line">    GPIO_togglePin(LED1_GPIO);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 定时器2中断（500ms）</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer2ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    timer2_count++;</span><br><span class="line">    GPIO_togglePin(LED2_GPIO);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP13);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置LED</span></span><br><span class="line">    GPIO_setPadConfig(LED1_GPIO, GPIO_PIN_TYPE_STD);</span><br><span class="line">    GPIO_setDirectionMode(LED1_GPIO, GPIO_DIR_MODE_OUT);</span><br><span class="line">    GPIO_setPinConfig(GPIO_0_GPIO0);</span><br><span class="line"></span><br><span class="line">    GPIO_setPadConfig(LED2_GPIO, GPIO_PIN_TYPE_STD);</span><br><span class="line">    GPIO_setDirectionMode(LED2_GPIO, GPIO_DIR_MODE_OUT);</span><br><span class="line">    GPIO_setPinConfig(GPIO_1_GPIO1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置定时器1（100ms）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">10000000</span>);</span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line">    Interrupt_register(INT_TIMER1, &amp;cpuTimer1ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER1);</span><br><span class="line">    CPUTimer_startTimer(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置定时器2（500ms）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER2_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER2_BASE, <span class="number">50000000</span>);</span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER2_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER2_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER2_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER2_BASE);</span><br><span class="line">    Interrupt_register(INT_TIMER2, &amp;cpuTimer2ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER2);</span><br><span class="line">    CPUTimer_startTimer(CPUTIMER2_BASE);</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 可以在这里使用timer1_count和timer2_count</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h3 id="示例3-定时器软件延时"><a href="#示例3-定时器软件延时" class="headerlink" title="示例3: 定时器软件延时"></a>示例3: 定时器软件延时</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">volatile</span> <span class="type">uint32_t</span> ms_counter = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    ms_counter++;</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">delay_ms</span><span class="params">(<span class="type">uint32_t</span> ms)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">uint32_t</span> start = ms_counter;</span><br><span class="line">    <span class="keyword">while</span>((ms_counter - start) &lt; ms);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置LED</span></span><br><span class="line">    GPIO_setPadConfig(<span class="number">31</span>, GPIO_PIN_TYPE_STD);</span><br><span class="line">    GPIO_setDirectionMode(<span class="number">31</span>, GPIO_DIR_MODE_OUT);</span><br><span class="line">    GPIO_setPinConfig(GPIO_31_GPIO31);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置定时器1（1ms）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000</span>);  <span class="comment">// 1ms</span></span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line">    Interrupt_register(INT_TIMER1, &amp;cpuTimer1ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER1);</span><br><span class="line">    CPUTimer_startTimer(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        GPIO_writePin(<span class="number">31</span>, <span class="number">1</span>);</span><br><span class="line">        delay_ms(<span class="number">500</span>);</span><br><span class="line">        GPIO_writePin(<span class="number">31</span>, <span class="number">0</span>);</span><br><span class="line">        delay_ms(<span class="number">500</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h3 id="示例4-定时器测量代码执行时间"><a href="#示例4-定时器测量代码执行时间" class="headerlink" title="示例4: 定时器测量代码执行时间"></a>示例4: 定时器测量代码执行时间</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Timer_Init_ForProfiling</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 配置定时器2用于性能测量（不使能中断）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER2_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER2_BASE, <span class="number">0xFFFFFFFF</span>);  <span class="comment">// 最大周期</span></span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER2_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER2_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER2_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_startTimer(CPUTIMER2_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">uint32_t</span> <span class="title function_">Get_Timer_Ticks</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> CPUTimer_getTimerCount(CPUTIMER2_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">float</span> <span class="title function_">Get_Elapsed_Time_us</span><span class="params">(<span class="type">uint32_t</span> start_ticks, <span class="type">uint32_t</span> end_ticks)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">uint32_t</span> elapsed = start_ticks - end_ticks;  <span class="comment">// 递减计数器</span></span><br><span class="line">    <span class="keyword">return</span> (<span class="type">float</span>)elapsed / <span class="number">100.0f</span>;  <span class="comment">// 100MHz = 10ns per tick</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line"></span><br><span class="line">    Timer_Init_ForProfiling();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 测量代码执行时间</span></span><br><span class="line">    <span class="type">uint32_t</span> start = Get_Timer_Ticks();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 要测量的代码</span></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">1000</span>; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        __asm(<span class="string">&quot; NOP&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">uint32_t</span> end = Get_Timer_Ticks();</span><br><span class="line"></span><br><span class="line">    <span class="type">float</span> time_us = Get_Elapsed_Time_us(start, end);</span><br><span class="line">    <span class="comment">// time_us 包含执行时间（微秒）</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h2><h3 id="1-定时器不工作？"><a href="#1-定时器不工作？" class="headerlink" title="1. 定时器不工作？"></a>1. 定时器不工作？</h3><ul>
-<li>检查是否调用了 <code>CPUTimer_startTimer()</code></li>
-<li>检查中断是否正确注册和使能</li>
-<li>检查是否调用了 <code>EINT</code> 和 <code>ERTM</code></li>
-</ul>
-<h3 id="2-定时不准确？"><a href="#2-定时不准确？" class="headerlink" title="2. 定时不准确？"></a>2. 定时不准确？</h3><ul>
-<li>确认系统时钟频率（SYSCLK）</li>
-<li>检查周期计算是否正确</li>
-<li>考虑中断延迟和处理时间</li>
-</ul>
-<h3 id="3-如何选择定时器？"><a href="#3-如何选择定时器？" class="headerlink" title="3. 如何选择定时器？"></a>3. 如何选择定时器？</h3><ul>
-<li><strong>Timer0</strong>: 保留给RTOS</li>
-<li><strong>Timer1/Timer2</strong>: 用户应用</li>
-</ul>
-<h3 id="4-中断优先级？"><a href="#4-中断优先级？" class="headerlink" title="4. 中断优先级？"></a>4. 中断优先级？</h3><ul>
-<li>Timer1: PIE Group 1.7</li>
-<li>Timer2: PIE Group 13.14</li>
-<li>可通过PIE配置优先级</li>
-</ul>
-<h3 id="5-调试时定时器停止？"><a href="#5-调试时定时器停止？" class="headerlink" title="5. 调试时定时器停止？"></a>5. 调试时定时器停止？</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 设置为调试时继续运行</span></span><br><span class="line">CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                          CPUTIMER_EMULATIONMODE_RUNFREE);</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="下一步"><a href="#下一步" class="headerlink" title="下一步"></a>下一步</h2><p>学习完定时器后，继续学习：</p>
-<ul>
-<li><a href="03_UART.md">03_UART.md</a> - 串口通信</li>
-<li><a href="04_ePWM.md">04_ePWM.md</a> - PWM输出</li>
-</ul>
-<hr>
-<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
-<li>TMS320F28004x Technical Reference Manual - CPU Timers</li>
-<li>C2000Ware DriverLib API Guide - CPUTimer Module</li>
-<li>CPU Timer Example Code in C2000Ware</li>
-</ul>
-]]></content>
-      <categories>
-        <category>嵌入式</category>
-        <category>C2000</category>
-      </categories>
-      <tags>
-        <tag>嵌入式</tag>
-        <tag>C2000</tag>
-        <tag>定时器</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>GPIO 配置与使用</title>
     <url>/2025/12/01/01_GPIO/</url>
     <content><![CDATA[<h1 id="GPIO配置与使用"><a href="#GPIO配置与使用" class="headerlink" title="GPIO配置与使用"></a>GPIO配置与使用</h1><h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
@@ -447,6 +312,141 @@
         <tag>嵌入式</tag>
         <tag>C2000</tag>
         <tag>GPIO</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>定时器配置与使用</title>
+    <url>/2025/12/02/02_TIMER/</url>
+    <content><![CDATA[<h1 id="CPU定时器配置与使用"><a href="#CPU定时器配置与使用" class="headerlink" title="CPU定时器配置与使用"></a>CPU定时器配置与使用</h1><h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
+<li><a href="#定时器基础">定时器基础</a></li>
+<li><a href="#与stm32对比">与STM32对比</a></li>
+<li><a href="#定时器寄存器">定时器寄存器</a></li>
+<li><a href="#手动配置定时器">手动配置定时器</a></li>
+<li><a href="#sysconfig配置定时器">SysConfig配置定时器</a></li>
+<li><a href="#实战示例">实战示例</a></li>
+</ol>
+<hr>
+<h2 id="定时器基础"><a href="#定时器基础" class="headerlink" title="定时器基础"></a>定时器基础</h2><p>F280049C有3个32位CPU定时器：</p>
+<ul>
+<li><strong>Timer0</strong>: 保留给实时操作系统（RTOS）使用</li>
+<li><strong>Timer1</strong>: 用户可用</li>
+<li><strong>Timer2</strong>: 用户可用</li>
+</ul>
+<h3 id="定时器特性"><a href="#定时器特性" class="headerlink" title="定时器特性"></a>定时器特性</h3><ul>
+<li><strong>位宽</strong>: 32位递减计数器</li>
+<li><strong>时钟源</strong>: SYSCLK（系统时钟）</li>
+<li><strong>预分频</strong>: 16位预分频器（1-65536）</li>
+<li><strong>中断</strong>: 每个定时器有独立中断</li>
+<li><strong>工作模式</strong>: 连续模式或单次模式</li>
+</ul>
+<h3 id="定时器工作原理"><a href="#定时器工作原理" class="headerlink" title="定时器工作原理"></a>定时器工作原理</h3><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">SYSCLK → 预分频器 → 32位计数器 → 中断</span><br><span class="line">         (÷N)      (递减到0)</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="与STM32对比"><a href="#与STM32对比" class="headerlink" title="与STM32对比"></a>与STM32对比</h2><h3 id="定时器类型对比"><a href="#定时器类型对比" class="headerlink" title="定时器类型对比"></a>定时器类型对比</h3><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>STM32</th>
+<th>F280049C</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>定时器类型</td>
+<td>基本/通用/高级定时器</td>
+<td>CPU定时器</td>
+</tr>
+<tr>
+<td>计数方向</td>
+<td>向上/向下/中心对齐</td>
+<td>仅向下计数</td>
+</tr>
+<tr>
+<td>位宽</td>
+<td>16位/32位</td>
+<td>32位</td>
+</tr>
+<tr>
+<td>PWM功能</td>
+<td>支持</td>
+<td>不支持（使用ePWM）</td>
+</tr>
+<tr>
+<td>输入捕获</td>
+<td>支持</td>
+<td>不支持</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="配置流程对比"><a href="#配置流程对比" class="headerlink" title="配置流程对比"></a>配置流程对比</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// STM32 HAL库</span></span><br><span class="line">TIM_HandleTypeDef htim2;</span><br><span class="line">htim2.Instance = TIM2;</span><br><span class="line">htim2.Init.Prescaler = <span class="number">99</span>;</span><br><span class="line">htim2.Init.Period = <span class="number">999</span>;</span><br><span class="line">HAL_TIM_Base_Init(&amp;htim2);</span><br><span class="line">HAL_TIM_Base_Start_IT(&amp;htim2);</span><br><span class="line"></span><br><span class="line"><span class="comment">// F280049C DriverLib</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line">CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line">CPUTimer_startTimer(CPUTIMER1_BASE);</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="定时器寄存器"><a href="#定时器寄存器" class="headerlink" title="定时器寄存器"></a>定时器寄存器</h2><h3 id="主要寄存器"><a href="#主要寄存器" class="headerlink" title="主要寄存器"></a>主要寄存器</h3><h4 id="1-TIMERxTIM-计数器寄存器"><a href="#1-TIMERxTIM-计数器寄存器" class="headerlink" title="1. TIMERxTIM - 计数器寄存器"></a>1. <strong>TIMERxTIM - 计数器寄存器</strong></h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">CpuTimer1Regs.TIM.all = <span class="number">0xFFFFFFFF</span>;  <span class="comment">// 设置计数初值</span></span><br></pre></td></tr></table></figure>
+<h4 id="2-TIMERxPRD-周期寄存器"><a href="#2-TIMERxPRD-周期寄存器" class="headerlink" title="2. TIMERxPRD - 周期寄存器"></a>2. <strong>TIMERxPRD - 周期寄存器</strong></h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">CpuTimer1Regs.PRD.all = <span class="number">100000000</span>;  <span class="comment">// 设置周期值</span></span><br></pre></td></tr></table></figure>
+<h4 id="3-TIMERxTPR-预分频寄存器"><a href="#3-TIMERxTPR-预分频寄存器" class="headerlink" title="3. TIMERxTPR - 预分频寄存器"></a>3. <strong>TIMERxTPR - 预分频寄存器</strong></h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">CpuTimer1Regs.TPR.bit.TDDR = <span class="number">0</span>;     <span class="comment">// 预分频值</span></span><br><span class="line">CpuTimer1Regs.TPR.bit.PSC = <span class="number">0</span>;      <span class="comment">// 预分频计数器</span></span><br></pre></td></tr></table></figure>
+<h4 id="4-TIMERxTCR-控制寄存器"><a href="#4-TIMERxTCR-控制寄存器" class="headerlink" title="4. TIMERxTCR - 控制寄存器"></a>4. <strong>TIMERxTCR - 控制寄存器</strong></h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line">CpuTimer1Regs.TCR.bit.TSS = <span class="number">0</span>;      <span class="comment">// 0=启动, 1=停止</span></span><br><span class="line">CpuTimer1Regs.TCR.bit.TRB = <span class="number">1</span>;      <span class="comment">// 1=重载计数器</span></span><br><span class="line">CpuTimer1Regs.TCR.bit.TIE = <span class="number">1</span>;      <span class="comment">// 1=使能中断</span></span><br><span class="line">CpuTimer1Regs.TCR.bit.FREE = <span class="number">1</span>;     <span class="comment">// 调试时继续运行</span></span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="手动配置定时器"><a href="#手动配置定时器" class="headerlink" title="手动配置定时器"></a>手动配置定时器</h2><h3 id="方法1-直接寄存器操作"><a href="#方法1-直接寄存器操作" class="headerlink" title="方法1: 直接寄存器操作"></a>方法1: 直接寄存器操作</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;F28x_Project.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 定时器中断服务函数</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpu_timer1_isr</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 翻转LED</span></span><br><span class="line">    GpioDataRegs.GPATOGGLE.bit.GPIO31 = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 清除中断标志</span></span><br><span class="line">    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Timer1_Init_Register</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    EALLOW;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1. 停止定时器</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.TSS = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 设置预分频器（SYSCLK = 100MHz）</span></span><br><span class="line">    CpuTimer1Regs.TPR.bit.TDDR = <span class="number">0</span>;  <span class="comment">// 预分频 = TDDR + 1 = 1</span></span><br><span class="line">    CpuTimer1Regs.TPR.bit.PSC = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 设置周期（1秒 = 100,000,000个时钟周期）</span></span><br><span class="line">    CpuTimer1Regs.PRD.all = <span class="number">100000000</span> - <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 4. 重载计数器</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.TRB = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 5. 配置为连续模式</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.FREE = <span class="number">1</span>;</span><br><span class="line">    CpuTimer1Regs.TCR.bit.SOFT = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 6. 使能定时器中断</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.TIE = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 7. 配置PIE中断</span></span><br><span class="line">    PieVectTable.TIMER1_INT = &amp;cpu_timer1_isr;</span><br><span class="line">    PieCtrlRegs.PIEIER1.bit.INTx7 = <span class="number">1</span>;</span><br><span class="line">    IER |= M_INT1;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 8. 启动定时器</span></span><br><span class="line">    CpuTimer1Regs.TCR.bit.TSS = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    EDIS;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="方法2-DriverLib库函数"><a href="#方法2-DriverLib库函数" class="headerlink" title="方法2: DriverLib库函数"></a>方法2: DriverLib库函数</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 定时器中断服务函数</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    GPIO_togglePin(<span class="number">31</span>);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Timer1_Init_DriverLib</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 1. 初始化定时器（100MHz系统时钟）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 设置周期（1秒 = 100,000,000个时钟周期）</span></span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000000</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 设置预分频器（0 = 不分频）</span></span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 4. 重载计数器</span></span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 5. 配置为连续模式</span></span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 6. 使能定时器中断</span></span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 7. 注册中断服务函数</span></span><br><span class="line">    Interrupt_register(INT_TIMER1, &amp;cpuTimer1ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 8. 启动定时器</span></span><br><span class="line">    CPUTimer_startTimer(CPUTIMER1_BASE);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="定时周期计算"><a href="#定时周期计算" class="headerlink" title="定时周期计算"></a>定时周期计算</h3><h4 id="公式"><a href="#公式" class="headerlink" title="公式"></a>公式</h4><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">定时周期(秒) = (PRD + 1) × (TDDR + 1) / SYSCLK</span><br></pre></td></tr></table></figure>
+<h4 id="示例计算"><a href="#示例计算" class="headerlink" title="示例计算"></a>示例计算</h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// SYSCLK = 100MHz</span></span><br><span class="line"><span class="comment">// 需要1ms定时</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 方法1: 不使用预分频</span></span><br><span class="line">PRD = <span class="number">100</span>MHz × <span class="number">0.001</span>s - <span class="number">1</span> = <span class="number">100</span>,<span class="number">000</span> - <span class="number">1</span> = <span class="number">99</span>,<span class="number">999</span></span><br><span class="line">TDDR = <span class="number">0</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 方法2: 使用预分频</span></span><br><span class="line">PRD = <span class="number">10</span>,<span class="number">000</span> - <span class="number">1</span> = <span class="number">9</span>,<span class="number">999</span></span><br><span class="line">TDDR = <span class="number">10</span> - <span class="number">1</span> = <span class="number">9</span>  <span class="comment">// 预分频10</span></span><br></pre></td></tr></table></figure>
+<h4 id="常用定时周期配置"><a href="#常用定时周期配置" class="headerlink" title="常用定时周期配置"></a>常用定时周期配置</h4><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 1ms定时（SYSCLK = 100MHz）</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 10ms定时</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">1000000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 100ms定时</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">10000000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 1秒定时</span></span><br><span class="line">CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000000</span>);</span><br><span class="line">CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="SysConfig配置定时器"><a href="#SysConfig配置定时器" class="headerlink" title="SysConfig配置定时器"></a>SysConfig配置定时器</h2><h3 id="步骤1-添加CPU-Timer"><a href="#步骤1-添加CPU-Timer" class="headerlink" title="步骤1: 添加CPU Timer"></a>步骤1: 添加CPU Timer</h3><ol>
+<li>在SysConfig中找到 <strong>CPUTIMER</strong></li>
+<li>点击 <strong>“+”</strong> 添加定时器实例</li>
+<li>选择 <strong>CPUTIMER1</strong> 或 <strong>CPUTIMER2</strong></li>
+</ol>
+<h3 id="步骤2-配置参数"><a href="#步骤2-配置参数" class="headerlink" title="步骤2: 配置参数"></a>步骤2: 配置参数</h3><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPUTIMER Instance: CPUTIMER1</span><br><span class="line">├── Timer Period (μs): 1000  (1ms)</span><br><span class="line">├── Enable Interrupt: ✓</span><br><span class="line">├── Emulation Mode: Run Free</span><br><span class="line">└── Start Timer: ✓</span><br></pre></td></tr></table></figure>
+<h3 id="步骤3-配置中断"><a href="#步骤3-配置中断" class="headerlink" title="步骤3: 配置中断"></a>步骤3: 配置中断</h3><p>在 <strong>Interrupt</strong> 模块中：<br><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">├── Enable INT_TIMER1: ✓</span><br><span class="line">└── Register Interrupt Handler: ✓</span><br></pre></td></tr></table></figure></p>
+<h3 id="步骤4-使用生成的代码"><a href="#步骤4-使用生成的代码" class="headerlink" title="步骤4: 使用生成的代码"></a>步骤4: 使用生成的代码</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;board.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 中断服务函数（需要手动实现）</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">INT_myCPUTIMER1_ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    GPIO_togglePin(<span class="number">31</span>);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 调用SysConfig生成的初始化</span></span><br><span class="line">    Board_init();</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 主循环</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="实战示例"><a href="#实战示例" class="headerlink" title="实战示例"></a>实战示例</h2><h3 id="示例1-LED定时闪烁（1Hz）"><a href="#示例1-LED定时闪烁（1Hz）" class="headerlink" title="示例1: LED定时闪烁（1Hz）"></a>示例1: LED定时闪烁（1Hz）</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> LED_GPIO 31</span></span><br><span class="line"></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    GPIO_togglePin(LED_GPIO);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置LED</span></span><br><span class="line">    GPIO_setPadConfig(LED_GPIO, GPIO_PIN_TYPE_STD);</span><br><span class="line">    GPIO_setDirectionMode(LED_GPIO, GPIO_DIR_MODE_OUT);</span><br><span class="line">    GPIO_setPinConfig(GPIO_31_GPIO31);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置定时器1（500ms）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">50000000</span>);  <span class="comment">// 0.5秒</span></span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 注册中断</span></span><br><span class="line">    Interrupt_register(INT_TIMER1, &amp;cpuTimer1ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 启动定时器</span></span><br><span class="line">    CPUTimer_startTimer(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 主循环空闲</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="示例2-多定时器应用"><a href="#示例2-多定时器应用" class="headerlink" title="示例2: 多定时器应用"></a>示例2: 多定时器应用</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> LED1_GPIO 0</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> LED2_GPIO 1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">volatile</span> <span class="type">uint32_t</span> timer1_count = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">volatile</span> <span class="type">uint32_t</span> timer2_count = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 定时器1中断（100ms）</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    timer1_count++;</span><br><span class="line">    GPIO_togglePin(LED1_GPIO);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 定时器2中断（500ms）</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer2ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    timer2_count++;</span><br><span class="line">    GPIO_togglePin(LED2_GPIO);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP13);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置LED</span></span><br><span class="line">    GPIO_setPadConfig(LED1_GPIO, GPIO_PIN_TYPE_STD);</span><br><span class="line">    GPIO_setDirectionMode(LED1_GPIO, GPIO_DIR_MODE_OUT);</span><br><span class="line">    GPIO_setPinConfig(GPIO_0_GPIO0);</span><br><span class="line"></span><br><span class="line">    GPIO_setPadConfig(LED2_GPIO, GPIO_PIN_TYPE_STD);</span><br><span class="line">    GPIO_setDirectionMode(LED2_GPIO, GPIO_DIR_MODE_OUT);</span><br><span class="line">    GPIO_setPinConfig(GPIO_1_GPIO1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置定时器1（100ms）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">10000000</span>);</span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line">    Interrupt_register(INT_TIMER1, &amp;cpuTimer1ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER1);</span><br><span class="line">    CPUTimer_startTimer(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置定时器2（500ms）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER2_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER2_BASE, <span class="number">50000000</span>);</span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER2_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER2_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER2_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER2_BASE);</span><br><span class="line">    Interrupt_register(INT_TIMER2, &amp;cpuTimer2ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER2);</span><br><span class="line">    CPUTimer_startTimer(CPUTIMER2_BASE);</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 可以在这里使用timer1_count和timer2_count</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="示例3-定时器软件延时"><a href="#示例3-定时器软件延时" class="headerlink" title="示例3: 定时器软件延时"></a>示例3: 定时器软件延时</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">volatile</span> <span class="type">uint32_t</span> ms_counter = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">cpuTimer1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    ms_counter++;</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">delay_ms</span><span class="params">(<span class="type">uint32_t</span> ms)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">uint32_t</span> start = ms_counter;</span><br><span class="line">    <span class="keyword">while</span>((ms_counter - start) &lt; ms);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置LED</span></span><br><span class="line">    GPIO_setPadConfig(<span class="number">31</span>, GPIO_PIN_TYPE_STD);</span><br><span class="line">    GPIO_setDirectionMode(<span class="number">31</span>, GPIO_DIR_MODE_OUT);</span><br><span class="line">    GPIO_setPinConfig(GPIO_31_GPIO31);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置定时器1（1ms）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER1_BASE, <span class="number">100000</span>);  <span class="comment">// 1ms</span></span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER1_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER1_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_enableInterrupt(CPUTIMER1_BASE);</span><br><span class="line">    Interrupt_register(INT_TIMER1, &amp;cpuTimer1ISR);</span><br><span class="line">    Interrupt_enable(INT_TIMER1);</span><br><span class="line">    CPUTimer_startTimer(CPUTIMER1_BASE);</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        GPIO_writePin(<span class="number">31</span>, <span class="number">1</span>);</span><br><span class="line">        delay_ms(<span class="number">500</span>);</span><br><span class="line">        GPIO_writePin(<span class="number">31</span>, <span class="number">0</span>);</span><br><span class="line">        delay_ms(<span class="number">500</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="示例4-定时器测量代码执行时间"><a href="#示例4-定时器测量代码执行时间" class="headerlink" title="示例4: 定时器测量代码执行时间"></a>示例4: 定时器测量代码执行时间</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Timer_Init_ForProfiling</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 配置定时器2用于性能测量（不使能中断）</span></span><br><span class="line">    CPUTimer_stopTimer(CPUTIMER2_BASE);</span><br><span class="line">    CPUTimer_setPeriod(CPUTIMER2_BASE, <span class="number">0xFFFFFFFF</span>);  <span class="comment">// 最大周期</span></span><br><span class="line">    CPUTimer_setPreScaler(CPUTIMER2_BASE, <span class="number">0</span>);</span><br><span class="line">    CPUTimer_reloadTimerCounter(CPUTIMER2_BASE);</span><br><span class="line">    CPUTimer_setEmulationMode(CPUTIMER2_BASE,</span><br><span class="line">                              CPUTIMER_EMULATIONMODE_RUNFREE);</span><br><span class="line">    CPUTimer_startTimer(CPUTIMER2_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">uint32_t</span> <span class="title function_">Get_Timer_Ticks</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> CPUTimer_getTimerCount(CPUTIMER2_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">float</span> <span class="title function_">Get_Elapsed_Time_us</span><span class="params">(<span class="type">uint32_t</span> start_ticks, <span class="type">uint32_t</span> end_ticks)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">uint32_t</span> elapsed = start_ticks - end_ticks;  <span class="comment">// 递减计数器</span></span><br><span class="line">    <span class="keyword">return</span> (<span class="type">float</span>)elapsed / <span class="number">100.0f</span>;  <span class="comment">// 100MHz = 10ns per tick</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    Device_init();</span><br><span class="line"></span><br><span class="line">    Timer_Init_ForProfiling();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 测量代码执行时间</span></span><br><span class="line">    <span class="type">uint32_t</span> start = Get_Timer_Ticks();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 要测量的代码</span></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">1000</span>; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        __asm(<span class="string">&quot; NOP&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">uint32_t</span> end = Get_Timer_Ticks();</span><br><span class="line"></span><br><span class="line">    <span class="type">float</span> time_us = Get_Elapsed_Time_us(start, end);</span><br><span class="line">    <span class="comment">// time_us 包含执行时间（微秒）</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h2><h3 id="1-定时器不工作？"><a href="#1-定时器不工作？" class="headerlink" title="1. 定时器不工作？"></a>1. 定时器不工作？</h3><ul>
+<li>检查是否调用了 <code>CPUTimer_startTimer()</code></li>
+<li>检查中断是否正确注册和使能</li>
+<li>检查是否调用了 <code>EINT</code> 和 <code>ERTM</code></li>
+</ul>
+<h3 id="2-定时不准确？"><a href="#2-定时不准确？" class="headerlink" title="2. 定时不准确？"></a>2. 定时不准确？</h3><ul>
+<li>确认系统时钟频率（SYSCLK）</li>
+<li>检查周期计算是否正确</li>
+<li>考虑中断延迟和处理时间</li>
+</ul>
+<h3 id="3-如何选择定时器？"><a href="#3-如何选择定时器？" class="headerlink" title="3. 如何选择定时器？"></a>3. 如何选择定时器？</h3><ul>
+<li><strong>Timer0</strong>: 保留给RTOS</li>
+<li><strong>Timer1/Timer2</strong>: 用户应用</li>
+</ul>
+<h3 id="4-中断优先级？"><a href="#4-中断优先级？" class="headerlink" title="4. 中断优先级？"></a>4. 中断优先级？</h3><ul>
+<li>Timer1: PIE Group 1.7</li>
+<li>Timer2: PIE Group 13.14</li>
+<li>可通过PIE配置优先级</li>
+</ul>
+<h3 id="5-调试时定时器停止？"><a href="#5-调试时定时器停止？" class="headerlink" title="5. 调试时定时器停止？"></a>5. 调试时定时器停止？</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 设置为调试时继续运行</span></span><br><span class="line">CPUTimer_setEmulationMode(CPUTIMER1_BASE,</span><br><span class="line">                          CPUTIMER_EMULATIONMODE_RUNFREE);</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="下一步"><a href="#下一步" class="headerlink" title="下一步"></a>下一步</h2><p>学习完定时器后，继续学习：</p>
+<ul>
+<li><a href="03_UART.md">03_UART.md</a> - 串口通信</li>
+<li><a href="04_ePWM.md">04_ePWM.md</a> - PWM输出</li>
+</ul>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li>TMS320F28004x Technical Reference Manual - CPU Timers</li>
+<li>C2000Ware DriverLib API Guide - CPUTimer Module</li>
+<li>CPU Timer Example Code in C2000Ware</li>
+</ul>
+]]></content>
+      <categories>
+        <category>嵌入式</category>
+        <category>C2000</category>
+      </categories>
+      <tags>
+        <tag>嵌入式</tag>
+        <tag>C2000</tag>
+        <tag>定时器</tag>
       </tags>
   </entry>
   <entry>
@@ -744,6 +744,114 @@
       </tags>
   </entry>
   <entry>
+    <title>其他重要外设</title>
+    <url>/2025/12/05/06_Advanced/</url>
+    <content><![CDATA[<h1 id="其他重要外设"><a href="#其他重要外设" class="headerlink" title="其他重要外设"></a>其他重要外设</h1><h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
+<li><a href="#spi通信">SPI通信</a></li>
+<li><a href="#i2c通信">I2C通信</a></li>
+<li><a href="#can通信">CAN通信</a></li>
+<li><a href="#dma传输">DMA传输</a></li>
+<li><a href="#看门狗定时器">看门狗定时器</a></li>
+<li><a href="#eeprom模拟">EEPROM模拟</a></li>
+</ol>
+<hr>
+<h2 id="SPI通信"><a href="#SPI通信" class="headerlink" title="SPI通信"></a>SPI通信</h2><p>F280049C有2个SPI模块（SPIA, SPIB），支持主从模式。</p>
+<h3 id="SPI特性"><a href="#SPI特性" class="headerlink" title="SPI特性"></a>SPI特性</h3><ul>
+<li><strong>速度</strong>: 最高25 Mbps</li>
+<li><strong>数据位</strong>: 1-16位可配置</li>
+<li><strong>模式</strong>: 主机/从机模式</li>
+<li><strong>FIFO</strong>: 16级发送和接收FIFO</li>
+<li><strong>时钟极性</strong>: 可配置CPOL和CPHA</li>
+</ul>
+<h3 id="基本配置"><a href="#基本配置" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">SPIA_Init_Master</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 配置GPIO引脚</span></span><br><span class="line">    GPIO_setPinConfig(GPIO_58_SPIA_CLK);</span><br><span class="line">    GPIO_setPinConfig(GPIO_59_SPIA_STE);</span><br><span class="line">    GPIO_setPinConfig(GPIO_60_SPIA_SIMO);</span><br><span class="line">    GPIO_setPinConfig(GPIO_61_SPIA_SOMI);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 复位SPI</span></span><br><span class="line">    SPI_disableModule(SPIA_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置SPI为主机模式</span></span><br><span class="line">    SPI_setConfig(SPIA_BASE, DEVICE_LSPCLK_FREQ, SPI_PROT_POL0PHA0,</span><br><span class="line">                  SPI_MODE_MASTER, <span class="number">1000000</span>, <span class="number">16</span>);  <span class="comment">// 1MHz, 16位数据</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使能FIFO</span></span><br><span class="line">    SPI_enableFIFO(SPIA_BASE);</span><br><span class="line">    SPI_setFIFOInterruptLevel(SPIA_BASE, SPI_FIFO_TX0, SPI_FIFO_RX1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使能模块</span></span><br><span class="line">    SPI_enableModule(SPIA_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">uint16_t</span> <span class="title function_">SPIA_Transfer</span><span class="params">(<span class="type">uint16_t</span> data)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 发送数据</span></span><br><span class="line">    SPI_writeDataBlockingNonFIFO(SPIA_BASE, data);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 接收数据</span></span><br><span class="line">    <span class="keyword">return</span> SPI_readDataBlockingNonFIFO(SPIA_BASE);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="SPI读写示例"><a href="#SPI读写示例" class="headerlink" title="SPI读写示例"></a>SPI读写示例</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 读取SPI设备寄存器</span></span><br><span class="line"><span class="type">uint16_t</span> <span class="title function_">SPI_ReadRegister</span><span class="params">(<span class="type">uint8_t</span> reg_addr)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">uint16_t</span> tx_data = (<span class="number">0x80</span> | reg_addr) &lt;&lt; <span class="number">8</span>;  <span class="comment">// 读命令</span></span><br><span class="line">    <span class="type">uint16_t</span> rx_data = SPIA_Transfer(tx_data);</span><br><span class="line">    <span class="keyword">return</span> rx_data &amp; <span class="number">0xFF</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 写入SPI设备寄存器</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">SPI_WriteRegister</span><span class="params">(<span class="type">uint8_t</span> reg_addr, <span class="type">uint8_t</span> value)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">uint16_t</span> tx_data = (reg_addr &lt;&lt; <span class="number">8</span>) | value;</span><br><span class="line">    SPIA_Transfer(tx_data);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="I2C通信"><a href="#I2C通信" class="headerlink" title="I2C通信"></a>I2C通信</h2><p>F280049C有2个I2C模块（I2CA, I2CB），支持标准和快速模式。</p>
+<h3 id="I2C特性"><a href="#I2C特性" class="headerlink" title="I2C特性"></a>I2C特性</h3><ul>
+<li><strong>速度</strong>: 标准模式100kHz，快速模式400kHz</li>
+<li><strong>地址</strong>: 7位或10位地址</li>
+<li><strong>模式</strong>: 主机/从机模式</li>
+<li><strong>FIFO</strong>: 4级发送和接收FIFO</li>
+</ul>
+<h3 id="基本配置-1"><a href="#基本配置-1" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">I2CA_Init_Master</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 配置GPIO引脚</span></span><br><span class="line">    GPIO_setPinConfig(GPIO_32_I2CA_SDA);</span><br><span class="line">    GPIO_setPinConfig(GPIO_33_I2CA_SCL);</span><br><span class="line">    GPIO_setPadConfig(<span class="number">32</span>, GPIO_PIN_TYPE_PULLUP);</span><br><span class="line">    GPIO_setPadConfig(<span class="number">33</span>, GPIO_PIN_TYPE_PULLUP);</span><br><span class="line">    GPIO_setQualificationMode(<span class="number">32</span>, GPIO_QUAL_ASYNC);</span><br><span class="line">    GPIO_setQualificationMode(<span class="number">33</span>, GPIO_QUAL_ASYNC);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化I2C</span></span><br><span class="line">    I2C_disableModule(I2CA_BASE);</span><br><span class="line">    I2C_initMaster(I2CA_BASE, DEVICE_SYSCLK_FREQ, <span class="number">400000</span>, I2C_DUTYCYCLE_50);</span><br><span class="line">    I2C_setConfig(I2CA_BASE, I2C_MASTER_SEND_MODE);</span><br><span class="line">    I2C_setSlaveAddress(I2CA_BASE, <span class="number">0x50</span>);  <span class="comment">// 设置从机地址</span></span><br><span class="line">    I2C_disableLoopback(I2CA_BASE);</span><br><span class="line">    I2C_setBitCount(I2CA_BASE, I2C_BITCOUNT_8);</span><br><span class="line">    I2C_setDataCount(I2CA_BASE, <span class="number">1</span>);</span><br><span class="line">    I2C_setAddressMode(I2CA_BASE, I2C_ADDR_MODE_7BITS);</span><br><span class="line">    I2C_enableFIFO(I2CA_BASE);</span><br><span class="line">    I2C_setFIFOInterruptLevel(I2CA_BASE, I2C_FIFO_TX0, I2C_FIFO_RX1);</span><br><span class="line">    I2C_setEmulationMode(I2CA_BASE, I2C_EMULATION_FREE_RUN);</span><br><span class="line">    I2C_enableModule(I2CA_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">I2C_WriteData</span><span class="params">(<span class="type">uint16_t</span> slave_addr, <span class="type">uint8_t</span> reg_addr, <span class="type">uint8_t</span> data)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 等待总线空闲</span></span><br><span class="line">    <span class="keyword">while</span>(I2C_isBusBusy(I2CA_BASE));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置从机地址</span></span><br><span class="line">    I2C_setSlaveAddress(I2CA_BASE, slave_addr);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置为发送模式</span></span><br><span class="line">    I2C_setConfig(I2CA_BASE, I2C_MASTER_SEND_MODE);</span><br><span class="line">    I2C_setDataCount(I2CA_BASE, <span class="number">2</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 发送起始条件</span></span><br><span class="line">    I2C_sendStartCondition(I2CA_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 发送寄存器地址</span></span><br><span class="line">    I2C_putData(I2CA_BASE, reg_addr);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 等待发送完成</span></span><br><span class="line">    <span class="keyword">while</span>(I2C_getStopConditionStatus(I2CA_BASE) == <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 发送数据</span></span><br><span class="line">    I2C_putData(I2CA_BASE, data);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 发送停止条件</span></span><br><span class="line">    I2C_sendStopCondition(I2CA_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 等待停止条件</span></span><br><span class="line">    <span class="keyword">while</span>(I2C_getStopConditionStatus(I2CA_BASE) == <span class="literal">false</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">uint8_t</span> <span class="title function_">I2C_ReadData</span><span class="params">(<span class="type">uint16_t</span> slave_addr, <span class="type">uint8_t</span> reg_addr)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 等待总线空闲</span></span><br><span class="line">    <span class="keyword">while</span>(I2C_isBusBusy(I2CA_BASE));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 写寄存器地址</span></span><br><span class="line">    I2C_setSlaveAddress(I2CA_BASE, slave_addr);</span><br><span class="line">    I2C_setConfig(I2CA_BASE, I2C_MASTER_SEND_MODE);</span><br><span class="line">    I2C_setDataCount(I2CA_BASE, <span class="number">1</span>);</span><br><span class="line">    I2C_sendStartCondition(I2CA_BASE);</span><br><span class="line">    I2C_putData(I2CA_BASE, reg_addr);</span><br><span class="line">    <span class="keyword">while</span>(I2C_getStopConditionStatus(I2CA_BASE) == <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 读数据</span></span><br><span class="line">    I2C_setConfig(I2CA_BASE, I2C_MASTER_RECEIVE_MODE);</span><br><span class="line">    I2C_setDataCount(I2CA_BASE, <span class="number">1</span>);</span><br><span class="line">    I2C_sendStartCondition(I2CA_BASE);</span><br><span class="line">    I2C_sendStopCondition(I2CA_BASE);</span><br><span class="line">    <span class="keyword">while</span>(I2C_getStopConditionStatus(I2CA_BASE) == <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> I2C_getData(I2CA_BASE);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="CAN通信"><a href="#CAN通信" class="headerlink" title="CAN通信"></a>CAN通信</h2><p>F280049C有2个CAN模块（CANA, CANB），支持CAN 2.0B协议。</p>
+<h3 id="CAN特性"><a href="#CAN特性" class="headerlink" title="CAN特性"></a>CAN特性</h3><ul>
+<li><strong>速度</strong>: 最高1 Mbps</li>
+<li><strong>邮箱</strong>: 32个邮箱</li>
+<li><strong>标识符</strong>: 标准11位或扩展29位</li>
+<li><strong>过滤</strong>: 可配置接收过滤器</li>
+</ul>
+<h3 id="基本配置-2"><a href="#基本配置-2" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">CANA_Init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 配置GPIO引脚</span></span><br><span class="line">    GPIO_setPinConfig(GPIO_30_CANA_RX);</span><br><span class="line">    GPIO_setPinConfig(GPIO_31_CANA_TX);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化CAN</span></span><br><span class="line">    CAN_initModule(CANA_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置波特率（500kbps）</span></span><br><span class="line">    CAN_setBitRate(CANA_BASE, DEVICE_SYSCLK_FREQ, <span class="number">500000</span>, <span class="number">16</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置邮箱1为发送</span></span><br><span class="line">    CAN_setupMessageObject(CANA_BASE, <span class="number">1</span>, <span class="number">0x123</span>,</span><br><span class="line">                          CAN_MSG_FRAME_STD,</span><br><span class="line">                          CAN_MSG_OBJ_TYPE_TX,</span><br><span class="line">                          <span class="number">0</span>, CAN_MSG_OBJ_NO_FLAGS, <span class="number">8</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置邮箱2为接收</span></span><br><span class="line">    CAN_setupMessageObject(CANA_BASE, <span class="number">2</span>, <span class="number">0x456</span>,</span><br><span class="line">                          CAN_MSG_FRAME_STD,</span><br><span class="line">                          CAN_MSG_OBJ_TYPE_RX,</span><br><span class="line">                          <span class="number">0</span>, CAN_MSG_OBJ_NO_FLAGS, <span class="number">8</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 启动CAN</span></span><br><span class="line">    CAN_startModule(CANA_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">CAN_SendMessage</span><span class="params">(<span class="type">uint32_t</span> msg_id, <span class="type">uint8_t</span> *data, <span class="type">uint16_t</span> len)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 发送数据</span></span><br><span class="line">    CAN_sendMessage(CANA_BASE, <span class="number">1</span>, len, data);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">bool</span> <span class="title function_">CAN_ReceiveMessage</span><span class="params">(<span class="type">uint8_t</span> *data, <span class="type">uint16_t</span> *len)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 检查是否有新消息</span></span><br><span class="line">    <span class="keyword">if</span>(CAN_readMessage(CANA_BASE, <span class="number">2</span>, data))</span><br><span class="line">    &#123;</span><br><span class="line">        *len = <span class="number">8</span>;  <span class="comment">// CAN数据长度</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="DMA传输"><a href="#DMA传输" class="headerlink" title="DMA传输"></a>DMA传输</h2><p>DMA可以在不占用CPU的情况下传输数据。</p>
+<h3 id="DMA特性"><a href="#DMA特性" class="headerlink" title="DMA特性"></a>DMA特性</h3><ul>
+<li><strong>通道数</strong>: 6个DMA通道</li>
+<li><strong>触发源</strong>: ADC, SPI, SCI等</li>
+<li><strong>传输模式</strong>: 单次、突发、连续</li>
+</ul>
+<h3 id="基本配置-3"><a href="#基本配置-3" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">uint16_t</span> adc_buffer[<span class="number">128</span>];</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">DMA_Init_ADC</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 初始化DMA</span></span><br><span class="line">    DMA_initController();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置DMA通道1</span></span><br><span class="line">    DMA_configAddresses(DMA_CH1_BASE,</span><br><span class="line">                       (<span class="type">uint16_t</span> *)&amp;AdcaResultRegs.ADCRESULT0,</span><br><span class="line">                       adc_buffer);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置突发传输</span></span><br><span class="line">    DMA_configBurst(DMA_CH1_BASE, <span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置传输</span></span><br><span class="line">    DMA_configTransfer(DMA_CH1_BASE, <span class="number">128</span>, <span class="number">1</span>, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置模式</span></span><br><span class="line">    DMA_configMode(DMA_CH1_BASE, DMA_TRIGGER_ADCA1,</span><br><span class="line">                  DMA_CFG_ONESHOT_DISABLE |</span><br><span class="line">                  DMA_CFG_CONTINUOUS_ENABLE |</span><br><span class="line">                  DMA_CFG_SIZE_16BIT);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使能DMA通道</span></span><br><span class="line">    DMA_enableTrigger(DMA_CH1_BASE);</span><br><span class="line">    DMA_startChannel(DMA_CH1_BASE);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="看门狗定时器"><a href="#看门狗定时器" class="headerlink" title="看门狗定时器"></a>看门狗定时器</h2><p>看门狗定时器用于检测系统故障并复位系统。</p>
+<h3 id="看门狗特性"><a href="#看门狗特性" class="headerlink" title="看门狗特性"></a>看门狗特性</h3><ul>
+<li><strong>超时时间</strong>: 可配置</li>
+<li><strong>复位模式</strong>: 系统复位或中断</li>
+<li><strong>窗口模式</strong>: 可选</li>
+</ul>
+<h3 id="基本配置-4"><a href="#基本配置-4" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Watchdog_Init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 禁用看门狗（开发阶段）</span></span><br><span class="line">    SysCtl_disableWatchdog();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 或者配置看门狗</span></span><br><span class="line">    <span class="comment">// SysCtl_setWatchdogPredivider(SYSCTL_WD_PREDIV_512);</span></span><br><span class="line">    <span class="comment">// SysCtl_setWatchdogMode(SYSCTL_WD_MODE_RESET);</span></span><br><span class="line">    <span class="comment">// SysCtl_enableWatchdog();</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Watchdog_Feed</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 喂狗</span></span><br><span class="line">    SysCtl_serviceWatchdog();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="EEPROM模拟"><a href="#EEPROM模拟" class="headerlink" title="EEPROM模拟"></a>EEPROM模拟</h2><p>F280049C没有内置EEPROM，可以使用Flash模拟。</p>
+<h3 id="Flash特性"><a href="#Flash特性" class="headerlink" title="Flash特性"></a>Flash特性</h3><ul>
+<li><strong>扇区大小</strong>: 4KB</li>
+<li><strong>编程</strong>: 按字编程</li>
+<li><strong>擦除</strong>: 按扇区擦除</li>
+</ul>
+<h3 id="基本操作"><a href="#基本操作" class="headerlink" title="基本操作"></a>基本操作</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> FLASH_SECTOR_ADDR 0x88000  <span class="comment">// Flash扇区地址</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Flash_EraseSector</span><span class="params">(<span class="type">uint32_t</span> sector_addr)</span></span><br><span class="line">&#123;</span><br><span class="line">    EALLOW;</span><br><span class="line">    Flash_eraseBank(sector_addr, FLASH_BANK0);</span><br><span class="line">    EDIS;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Flash_WriteData</span><span class="params">(<span class="type">uint32_t</span> addr, <span class="type">uint16_t</span> *data, <span class="type">uint16_t</span> len)</span></span><br><span class="line">&#123;</span><br><span class="line">    EALLOW;</span><br><span class="line">    Flash_program(addr, data, len, FLASH_BANK0);</span><br><span class="line">    EDIS;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Flash_ReadData</span><span class="params">(<span class="type">uint32_t</span> addr, <span class="type">uint16_t</span> *data, <span class="type">uint16_t</span> len)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">for</span>(<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; len; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        data[i] = *(<span class="type">uint16_t</span> *)(addr + i * <span class="number">2</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="综合示例：数据采集系统"><a href="#综合示例：数据采集系统" class="headerlink" title="综合示例：数据采集系统"></a>综合示例：数据采集系统</h2><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 系统配置</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> SAMPLE_RATE 1000  <span class="comment">// 1kHz采样率</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> BUFFER_SIZE 128</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 数据缓冲区</span></span><br><span class="line"><span class="type">uint16_t</span> adc_buffer[BUFFER_SIZE];</span><br><span class="line"><span class="keyword">volatile</span> <span class="type">uint16_t</span> buffer_index = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">volatile</span> <span class="type">bool</span> buffer_full = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ADC中断</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">adcA1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    adc_buffer[buffer_index++] = ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER0);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(buffer_index &gt;= BUFFER_SIZE)</span><br><span class="line">    &#123;</span><br><span class="line">        buffer_index = <span class="number">0</span>;</span><br><span class="line">        buffer_full = <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER1);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">System_Init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 初始化设备</span></span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置ePWM触发ADC</span></span><br><span class="line">    EPWM_setTimeBaseCounterMode(EPWM1_BASE, EPWM_COUNTER_MODE_UP);</span><br><span class="line">    EPWM_setTimeBasePeriod(EPWM1_BASE, <span class="number">100000</span>);  <span class="comment">// 1kHz</span></span><br><span class="line">    EPWM_setADCTriggerSource(EPWM1_BASE, EPWM_SOC_A, EPWM_SOC_TBCTR_ZERO);</span><br><span class="line">    EPWM_enableADCTrigger(EPWM1_BASE, EPWM_SOC_A);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置ADC</span></span><br><span class="line">    ADC_setPrescaler(ADCA_BASE, ADC_CLK_DIV_4_0);</span><br><span class="line">    ADC_setMode(ADCA_BASE, ADC_RESOLUTION_12BIT, ADC_MODE_SINGLE_ENDED);</span><br><span class="line">    ADC_enableConverter(ADCA_BASE);</span><br><span class="line">    DEVICE_DELAY_US(<span class="number">1000</span>);</span><br><span class="line"></span><br><span class="line">    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER0,</span><br><span class="line">                 ADC_TRIGGER_EPWM1_SOCA, ADC_CH_ADCIN0, <span class="number">15</span>);</span><br><span class="line">    ADC_setInterruptSource(ADCA_BASE, ADC_INT_NUMBER1, ADC_SOC_NUMBER0);</span><br><span class="line">    ADC_enableInterrupt(ADCA_BASE, ADC_INT_NUMBER1);</span><br><span class="line">    ADC_enableContinuousMode(ADCA_BASE, ADC_INT_NUMBER1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 注册中断</span></span><br><span class="line">    Interrupt_register(INT_ADCA1, &amp;adcA1ISR);</span><br><span class="line">    Interrupt_enable(INT_ADCA1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置UART</span></span><br><span class="line">    GPIO_setPinConfig(GPIO_28_SCIA_TX);</span><br><span class="line">    GPIO_setPinConfig(GPIO_29_SCIA_RX);</span><br><span class="line">    SCI_setConfig(SCIA_BASE, DEVICE_LSPCLK_FREQ, <span class="number">115200</span>,</span><br><span class="line">                  (SCI_CONFIG_WLEN_8 | SCI_CONFIG_STOP_ONE | SCI_CONFIG_PAR_NONE));</span><br><span class="line">    SCI_enableFIFO(SCIA_BASE);</span><br><span class="line">    SCI_enableModule(SCIA_BASE);</span><br><span class="line">    SCI_resetChannels(SCIA_BASE);</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">SendDataToPC</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 发送数据到PC</span></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; BUFFER_SIZE; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 发送高字节</span></span><br><span class="line">        SCI_writeCharBlockingFIFO(SCIA_BASE, (adc_buffer[i] &gt;&gt; <span class="number">8</span>) &amp; <span class="number">0xFF</span>);</span><br><span class="line">        <span class="comment">// 发送低字节</span></span><br><span class="line">        SCI_writeCharBlockingFIFO(SCIA_BASE, adc_buffer[i] &amp; <span class="number">0xFF</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    System_Init();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span>(buffer_full)</span><br><span class="line">        &#123;</span><br><span class="line">            buffer_full = <span class="literal">false</span>;</span><br><span class="line">            SendDataToPC();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<h2 id="学习建议"><a href="#学习建议" class="headerlink" title="学习建议"></a>学习建议</h2><ol>
+<li><strong>循序渐进</strong>: 先掌握基础外设（GPIO、TIMER、UART），再学习高级外设</li>
+<li><strong>实践为主</strong>: 多动手编写代码，运行示例程序</li>
+<li><strong>参考例程</strong>: C2000Ware提供了丰富的示例代码</li>
+<li><strong>使用SysConfig</strong>: 图形化配置可以快速上手</li>
+<li><strong>阅读手册</strong>: Technical Reference Manual是最权威的参考资料</li>
+</ol>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li>TMS320F28004x Technical Reference Manual</li>
+<li>C2000Ware DriverLib API Guide</li>
+<li>C2000Ware Example Code</li>
+<li>TI E2E Forum: <a href="https://e2e.ti.com/">https://e2e.ti.com/</a></li>
+<li>C2000 Academy: 在线培训课程</li>
+</ul>
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>通过本系列教程，你已经学习了：</p>
+<ol>
+<li>✓ GPIO配置和使用</li>
+<li>✓ CPU定时器</li>
+<li>✓ UART串口通信</li>
+<li>✓ ePWM输出</li>
+<li>✓ ADC采集</li>
+<li>✓ SPI、I2C、CAN等通信接口</li>
+<li>✓ DMA传输</li>
+<li>✓ 看门狗和Flash操作</li>
+</ol>
+<p>现在你已经具备了开发F280049C应用的基础知识。继续深入学习，结合实际项目，你将能够开发出更复杂的嵌入式系统！</p>
+<p>祝学习顺利！🚀</p>
+]]></content>
+      <categories>
+        <category>嵌入式</category>
+        <category>C2000</category>
+      </categories>
+      <tags>
+        <tag>嵌入式</tag>
+        <tag>C2000</tag>
+        <tag>SPI</tag>
+        <tag>I2C</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>ADC 采样模块</title>
     <url>/2025/12/06/05_ADC/</url>
     <content><![CDATA[<h1 id="ADC配置与使用"><a href="#ADC配置与使用" class="headerlink" title="ADC配置与使用"></a>ADC配置与使用</h1><h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
@@ -887,114 +995,6 @@
       </tags>
   </entry>
   <entry>
-    <title>其他重要外设</title>
-    <url>/2025/12/05/06_Advanced/</url>
-    <content><![CDATA[<h1 id="其他重要外设"><a href="#其他重要外设" class="headerlink" title="其他重要外设"></a>其他重要外设</h1><h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
-<li><a href="#spi通信">SPI通信</a></li>
-<li><a href="#i2c通信">I2C通信</a></li>
-<li><a href="#can通信">CAN通信</a></li>
-<li><a href="#dma传输">DMA传输</a></li>
-<li><a href="#看门狗定时器">看门狗定时器</a></li>
-<li><a href="#eeprom模拟">EEPROM模拟</a></li>
-</ol>
-<hr>
-<h2 id="SPI通信"><a href="#SPI通信" class="headerlink" title="SPI通信"></a>SPI通信</h2><p>F280049C有2个SPI模块（SPIA, SPIB），支持主从模式。</p>
-<h3 id="SPI特性"><a href="#SPI特性" class="headerlink" title="SPI特性"></a>SPI特性</h3><ul>
-<li><strong>速度</strong>: 最高25 Mbps</li>
-<li><strong>数据位</strong>: 1-16位可配置</li>
-<li><strong>模式</strong>: 主机/从机模式</li>
-<li><strong>FIFO</strong>: 16级发送和接收FIFO</li>
-<li><strong>时钟极性</strong>: 可配置CPOL和CPHA</li>
-</ul>
-<h3 id="基本配置"><a href="#基本配置" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">SPIA_Init_Master</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 配置GPIO引脚</span></span><br><span class="line">    GPIO_setPinConfig(GPIO_58_SPIA_CLK);</span><br><span class="line">    GPIO_setPinConfig(GPIO_59_SPIA_STE);</span><br><span class="line">    GPIO_setPinConfig(GPIO_60_SPIA_SIMO);</span><br><span class="line">    GPIO_setPinConfig(GPIO_61_SPIA_SOMI);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 复位SPI</span></span><br><span class="line">    SPI_disableModule(SPIA_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置SPI为主机模式</span></span><br><span class="line">    SPI_setConfig(SPIA_BASE, DEVICE_LSPCLK_FREQ, SPI_PROT_POL0PHA0,</span><br><span class="line">                  SPI_MODE_MASTER, <span class="number">1000000</span>, <span class="number">16</span>);  <span class="comment">// 1MHz, 16位数据</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使能FIFO</span></span><br><span class="line">    SPI_enableFIFO(SPIA_BASE);</span><br><span class="line">    SPI_setFIFOInterruptLevel(SPIA_BASE, SPI_FIFO_TX0, SPI_FIFO_RX1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使能模块</span></span><br><span class="line">    SPI_enableModule(SPIA_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">uint16_t</span> <span class="title function_">SPIA_Transfer</span><span class="params">(<span class="type">uint16_t</span> data)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 发送数据</span></span><br><span class="line">    SPI_writeDataBlockingNonFIFO(SPIA_BASE, data);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 接收数据</span></span><br><span class="line">    <span class="keyword">return</span> SPI_readDataBlockingNonFIFO(SPIA_BASE);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h3 id="SPI读写示例"><a href="#SPI读写示例" class="headerlink" title="SPI读写示例"></a>SPI读写示例</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 读取SPI设备寄存器</span></span><br><span class="line"><span class="type">uint16_t</span> <span class="title function_">SPI_ReadRegister</span><span class="params">(<span class="type">uint8_t</span> reg_addr)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">uint16_t</span> tx_data = (<span class="number">0x80</span> | reg_addr) &lt;&lt; <span class="number">8</span>;  <span class="comment">// 读命令</span></span><br><span class="line">    <span class="type">uint16_t</span> rx_data = SPIA_Transfer(tx_data);</span><br><span class="line">    <span class="keyword">return</span> rx_data &amp; <span class="number">0xFF</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 写入SPI设备寄存器</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">SPI_WriteRegister</span><span class="params">(<span class="type">uint8_t</span> reg_addr, <span class="type">uint8_t</span> value)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">uint16_t</span> tx_data = (reg_addr &lt;&lt; <span class="number">8</span>) | value;</span><br><span class="line">    SPIA_Transfer(tx_data);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="I2C通信"><a href="#I2C通信" class="headerlink" title="I2C通信"></a>I2C通信</h2><p>F280049C有2个I2C模块（I2CA, I2CB），支持标准和快速模式。</p>
-<h3 id="I2C特性"><a href="#I2C特性" class="headerlink" title="I2C特性"></a>I2C特性</h3><ul>
-<li><strong>速度</strong>: 标准模式100kHz，快速模式400kHz</li>
-<li><strong>地址</strong>: 7位或10位地址</li>
-<li><strong>模式</strong>: 主机/从机模式</li>
-<li><strong>FIFO</strong>: 4级发送和接收FIFO</li>
-</ul>
-<h3 id="基本配置-1"><a href="#基本配置-1" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">I2CA_Init_Master</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 配置GPIO引脚</span></span><br><span class="line">    GPIO_setPinConfig(GPIO_32_I2CA_SDA);</span><br><span class="line">    GPIO_setPinConfig(GPIO_33_I2CA_SCL);</span><br><span class="line">    GPIO_setPadConfig(<span class="number">32</span>, GPIO_PIN_TYPE_PULLUP);</span><br><span class="line">    GPIO_setPadConfig(<span class="number">33</span>, GPIO_PIN_TYPE_PULLUP);</span><br><span class="line">    GPIO_setQualificationMode(<span class="number">32</span>, GPIO_QUAL_ASYNC);</span><br><span class="line">    GPIO_setQualificationMode(<span class="number">33</span>, GPIO_QUAL_ASYNC);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化I2C</span></span><br><span class="line">    I2C_disableModule(I2CA_BASE);</span><br><span class="line">    I2C_initMaster(I2CA_BASE, DEVICE_SYSCLK_FREQ, <span class="number">400000</span>, I2C_DUTYCYCLE_50);</span><br><span class="line">    I2C_setConfig(I2CA_BASE, I2C_MASTER_SEND_MODE);</span><br><span class="line">    I2C_setSlaveAddress(I2CA_BASE, <span class="number">0x50</span>);  <span class="comment">// 设置从机地址</span></span><br><span class="line">    I2C_disableLoopback(I2CA_BASE);</span><br><span class="line">    I2C_setBitCount(I2CA_BASE, I2C_BITCOUNT_8);</span><br><span class="line">    I2C_setDataCount(I2CA_BASE, <span class="number">1</span>);</span><br><span class="line">    I2C_setAddressMode(I2CA_BASE, I2C_ADDR_MODE_7BITS);</span><br><span class="line">    I2C_enableFIFO(I2CA_BASE);</span><br><span class="line">    I2C_setFIFOInterruptLevel(I2CA_BASE, I2C_FIFO_TX0, I2C_FIFO_RX1);</span><br><span class="line">    I2C_setEmulationMode(I2CA_BASE, I2C_EMULATION_FREE_RUN);</span><br><span class="line">    I2C_enableModule(I2CA_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">I2C_WriteData</span><span class="params">(<span class="type">uint16_t</span> slave_addr, <span class="type">uint8_t</span> reg_addr, <span class="type">uint8_t</span> data)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 等待总线空闲</span></span><br><span class="line">    <span class="keyword">while</span>(I2C_isBusBusy(I2CA_BASE));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置从机地址</span></span><br><span class="line">    I2C_setSlaveAddress(I2CA_BASE, slave_addr);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置为发送模式</span></span><br><span class="line">    I2C_setConfig(I2CA_BASE, I2C_MASTER_SEND_MODE);</span><br><span class="line">    I2C_setDataCount(I2CA_BASE, <span class="number">2</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 发送起始条件</span></span><br><span class="line">    I2C_sendStartCondition(I2CA_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 发送寄存器地址</span></span><br><span class="line">    I2C_putData(I2CA_BASE, reg_addr);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 等待发送完成</span></span><br><span class="line">    <span class="keyword">while</span>(I2C_getStopConditionStatus(I2CA_BASE) == <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 发送数据</span></span><br><span class="line">    I2C_putData(I2CA_BASE, data);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 发送停止条件</span></span><br><span class="line">    I2C_sendStopCondition(I2CA_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 等待停止条件</span></span><br><span class="line">    <span class="keyword">while</span>(I2C_getStopConditionStatus(I2CA_BASE) == <span class="literal">false</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">uint8_t</span> <span class="title function_">I2C_ReadData</span><span class="params">(<span class="type">uint16_t</span> slave_addr, <span class="type">uint8_t</span> reg_addr)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 等待总线空闲</span></span><br><span class="line">    <span class="keyword">while</span>(I2C_isBusBusy(I2CA_BASE));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 写寄存器地址</span></span><br><span class="line">    I2C_setSlaveAddress(I2CA_BASE, slave_addr);</span><br><span class="line">    I2C_setConfig(I2CA_BASE, I2C_MASTER_SEND_MODE);</span><br><span class="line">    I2C_setDataCount(I2CA_BASE, <span class="number">1</span>);</span><br><span class="line">    I2C_sendStartCondition(I2CA_BASE);</span><br><span class="line">    I2C_putData(I2CA_BASE, reg_addr);</span><br><span class="line">    <span class="keyword">while</span>(I2C_getStopConditionStatus(I2CA_BASE) == <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 读数据</span></span><br><span class="line">    I2C_setConfig(I2CA_BASE, I2C_MASTER_RECEIVE_MODE);</span><br><span class="line">    I2C_setDataCount(I2CA_BASE, <span class="number">1</span>);</span><br><span class="line">    I2C_sendStartCondition(I2CA_BASE);</span><br><span class="line">    I2C_sendStopCondition(I2CA_BASE);</span><br><span class="line">    <span class="keyword">while</span>(I2C_getStopConditionStatus(I2CA_BASE) == <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> I2C_getData(I2CA_BASE);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="CAN通信"><a href="#CAN通信" class="headerlink" title="CAN通信"></a>CAN通信</h2><p>F280049C有2个CAN模块（CANA, CANB），支持CAN 2.0B协议。</p>
-<h3 id="CAN特性"><a href="#CAN特性" class="headerlink" title="CAN特性"></a>CAN特性</h3><ul>
-<li><strong>速度</strong>: 最高1 Mbps</li>
-<li><strong>邮箱</strong>: 32个邮箱</li>
-<li><strong>标识符</strong>: 标准11位或扩展29位</li>
-<li><strong>过滤</strong>: 可配置接收过滤器</li>
-</ul>
-<h3 id="基本配置-2"><a href="#基本配置-2" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">CANA_Init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 配置GPIO引脚</span></span><br><span class="line">    GPIO_setPinConfig(GPIO_30_CANA_RX);</span><br><span class="line">    GPIO_setPinConfig(GPIO_31_CANA_TX);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化CAN</span></span><br><span class="line">    CAN_initModule(CANA_BASE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置波特率（500kbps）</span></span><br><span class="line">    CAN_setBitRate(CANA_BASE, DEVICE_SYSCLK_FREQ, <span class="number">500000</span>, <span class="number">16</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置邮箱1为发送</span></span><br><span class="line">    CAN_setupMessageObject(CANA_BASE, <span class="number">1</span>, <span class="number">0x123</span>,</span><br><span class="line">                          CAN_MSG_FRAME_STD,</span><br><span class="line">                          CAN_MSG_OBJ_TYPE_TX,</span><br><span class="line">                          <span class="number">0</span>, CAN_MSG_OBJ_NO_FLAGS, <span class="number">8</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置邮箱2为接收</span></span><br><span class="line">    CAN_setupMessageObject(CANA_BASE, <span class="number">2</span>, <span class="number">0x456</span>,</span><br><span class="line">                          CAN_MSG_FRAME_STD,</span><br><span class="line">                          CAN_MSG_OBJ_TYPE_RX,</span><br><span class="line">                          <span class="number">0</span>, CAN_MSG_OBJ_NO_FLAGS, <span class="number">8</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 启动CAN</span></span><br><span class="line">    CAN_startModule(CANA_BASE);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">CAN_SendMessage</span><span class="params">(<span class="type">uint32_t</span> msg_id, <span class="type">uint8_t</span> *data, <span class="type">uint16_t</span> len)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 发送数据</span></span><br><span class="line">    CAN_sendMessage(CANA_BASE, <span class="number">1</span>, len, data);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">bool</span> <span class="title function_">CAN_ReceiveMessage</span><span class="params">(<span class="type">uint8_t</span> *data, <span class="type">uint16_t</span> *len)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 检查是否有新消息</span></span><br><span class="line">    <span class="keyword">if</span>(CAN_readMessage(CANA_BASE, <span class="number">2</span>, data))</span><br><span class="line">    &#123;</span><br><span class="line">        *len = <span class="number">8</span>;  <span class="comment">// CAN数据长度</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="DMA传输"><a href="#DMA传输" class="headerlink" title="DMA传输"></a>DMA传输</h2><p>DMA可以在不占用CPU的情况下传输数据。</p>
-<h3 id="DMA特性"><a href="#DMA特性" class="headerlink" title="DMA特性"></a>DMA特性</h3><ul>
-<li><strong>通道数</strong>: 6个DMA通道</li>
-<li><strong>触发源</strong>: ADC, SPI, SCI等</li>
-<li><strong>传输模式</strong>: 单次、突发、连续</li>
-</ul>
-<h3 id="基本配置-3"><a href="#基本配置-3" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">uint16_t</span> adc_buffer[<span class="number">128</span>];</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">DMA_Init_ADC</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 初始化DMA</span></span><br><span class="line">    DMA_initController();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置DMA通道1</span></span><br><span class="line">    DMA_configAddresses(DMA_CH1_BASE,</span><br><span class="line">                       (<span class="type">uint16_t</span> *)&amp;AdcaResultRegs.ADCRESULT0,</span><br><span class="line">                       adc_buffer);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置突发传输</span></span><br><span class="line">    DMA_configBurst(DMA_CH1_BASE, <span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置传输</span></span><br><span class="line">    DMA_configTransfer(DMA_CH1_BASE, <span class="number">128</span>, <span class="number">1</span>, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置模式</span></span><br><span class="line">    DMA_configMode(DMA_CH1_BASE, DMA_TRIGGER_ADCA1,</span><br><span class="line">                  DMA_CFG_ONESHOT_DISABLE |</span><br><span class="line">                  DMA_CFG_CONTINUOUS_ENABLE |</span><br><span class="line">                  DMA_CFG_SIZE_16BIT);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使能DMA通道</span></span><br><span class="line">    DMA_enableTrigger(DMA_CH1_BASE);</span><br><span class="line">    DMA_startChannel(DMA_CH1_BASE);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="看门狗定时器"><a href="#看门狗定时器" class="headerlink" title="看门狗定时器"></a>看门狗定时器</h2><p>看门狗定时器用于检测系统故障并复位系统。</p>
-<h3 id="看门狗特性"><a href="#看门狗特性" class="headerlink" title="看门狗特性"></a>看门狗特性</h3><ul>
-<li><strong>超时时间</strong>: 可配置</li>
-<li><strong>复位模式</strong>: 系统复位或中断</li>
-<li><strong>窗口模式</strong>: 可选</li>
-</ul>
-<h3 id="基本配置-4"><a href="#基本配置-4" class="headerlink" title="基本配置"></a>基本配置</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Watchdog_Init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 禁用看门狗（开发阶段）</span></span><br><span class="line">    SysCtl_disableWatchdog();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 或者配置看门狗</span></span><br><span class="line">    <span class="comment">// SysCtl_setWatchdogPredivider(SYSCTL_WD_PREDIV_512);</span></span><br><span class="line">    <span class="comment">// SysCtl_setWatchdogMode(SYSCTL_WD_MODE_RESET);</span></span><br><span class="line">    <span class="comment">// SysCtl_enableWatchdog();</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Watchdog_Feed</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 喂狗</span></span><br><span class="line">    SysCtl_serviceWatchdog();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="EEPROM模拟"><a href="#EEPROM模拟" class="headerlink" title="EEPROM模拟"></a>EEPROM模拟</h2><p>F280049C没有内置EEPROM，可以使用Flash模拟。</p>
-<h3 id="Flash特性"><a href="#Flash特性" class="headerlink" title="Flash特性"></a>Flash特性</h3><ul>
-<li><strong>扇区大小</strong>: 4KB</li>
-<li><strong>编程</strong>: 按字编程</li>
-<li><strong>擦除</strong>: 按扇区擦除</li>
-</ul>
-<h3 id="基本操作"><a href="#基本操作" class="headerlink" title="基本操作"></a>基本操作</h3><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> FLASH_SECTOR_ADDR 0x88000  <span class="comment">// Flash扇区地址</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Flash_EraseSector</span><span class="params">(<span class="type">uint32_t</span> sector_addr)</span></span><br><span class="line">&#123;</span><br><span class="line">    EALLOW;</span><br><span class="line">    Flash_eraseBank(sector_addr, FLASH_BANK0);</span><br><span class="line">    EDIS;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Flash_WriteData</span><span class="params">(<span class="type">uint32_t</span> addr, <span class="type">uint16_t</span> *data, <span class="type">uint16_t</span> len)</span></span><br><span class="line">&#123;</span><br><span class="line">    EALLOW;</span><br><span class="line">    Flash_program(addr, data, len, FLASH_BANK0);</span><br><span class="line">    EDIS;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">Flash_ReadData</span><span class="params">(<span class="type">uint32_t</span> addr, <span class="type">uint16_t</span> *data, <span class="type">uint16_t</span> len)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">for</span>(<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; len; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        data[i] = *(<span class="type">uint16_t</span> *)(addr + i * <span class="number">2</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="综合示例：数据采集系统"><a href="#综合示例：数据采集系统" class="headerlink" title="综合示例：数据采集系统"></a>综合示例：数据采集系统</h2><figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;driverlib.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;device.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 系统配置</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> SAMPLE_RATE 1000  <span class="comment">// 1kHz采样率</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> BUFFER_SIZE 128</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 数据缓冲区</span></span><br><span class="line"><span class="type">uint16_t</span> adc_buffer[BUFFER_SIZE];</span><br><span class="line"><span class="keyword">volatile</span> <span class="type">uint16_t</span> buffer_index = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">volatile</span> <span class="type">bool</span> buffer_full = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ADC中断</span></span><br><span class="line">__interrupt <span class="type">void</span> <span class="title function_">adcA1ISR</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    adc_buffer[buffer_index++] = ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER0);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(buffer_index &gt;= BUFFER_SIZE)</span><br><span class="line">    &#123;</span><br><span class="line">        buffer_index = <span class="number">0</span>;</span><br><span class="line">        buffer_full = <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER1);</span><br><span class="line">    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">System_Init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 初始化设备</span></span><br><span class="line">    Device_init();</span><br><span class="line">    Device_initGPIO();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化中断</span></span><br><span class="line">    Interrupt_initModule();</span><br><span class="line">    Interrupt_initVectorTable();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置ePWM触发ADC</span></span><br><span class="line">    EPWM_setTimeBaseCounterMode(EPWM1_BASE, EPWM_COUNTER_MODE_UP);</span><br><span class="line">    EPWM_setTimeBasePeriod(EPWM1_BASE, <span class="number">100000</span>);  <span class="comment">// 1kHz</span></span><br><span class="line">    EPWM_setADCTriggerSource(EPWM1_BASE, EPWM_SOC_A, EPWM_SOC_TBCTR_ZERO);</span><br><span class="line">    EPWM_enableADCTrigger(EPWM1_BASE, EPWM_SOC_A);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置ADC</span></span><br><span class="line">    ADC_setPrescaler(ADCA_BASE, ADC_CLK_DIV_4_0);</span><br><span class="line">    ADC_setMode(ADCA_BASE, ADC_RESOLUTION_12BIT, ADC_MODE_SINGLE_ENDED);</span><br><span class="line">    ADC_enableConverter(ADCA_BASE);</span><br><span class="line">    DEVICE_DELAY_US(<span class="number">1000</span>);</span><br><span class="line"></span><br><span class="line">    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER0,</span><br><span class="line">                 ADC_TRIGGER_EPWM1_SOCA, ADC_CH_ADCIN0, <span class="number">15</span>);</span><br><span class="line">    ADC_setInterruptSource(ADCA_BASE, ADC_INT_NUMBER1, ADC_SOC_NUMBER0);</span><br><span class="line">    ADC_enableInterrupt(ADCA_BASE, ADC_INT_NUMBER1);</span><br><span class="line">    ADC_enableContinuousMode(ADCA_BASE, ADC_INT_NUMBER1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 注册中断</span></span><br><span class="line">    Interrupt_register(INT_ADCA1, &amp;adcA1ISR);</span><br><span class="line">    Interrupt_enable(INT_ADCA1);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 配置UART</span></span><br><span class="line">    GPIO_setPinConfig(GPIO_28_SCIA_TX);</span><br><span class="line">    GPIO_setPinConfig(GPIO_29_SCIA_RX);</span><br><span class="line">    SCI_setConfig(SCIA_BASE, DEVICE_LSPCLK_FREQ, <span class="number">115200</span>,</span><br><span class="line">                  (SCI_CONFIG_WLEN_8 | SCI_CONFIG_STOP_ONE | SCI_CONFIG_PAR_NONE));</span><br><span class="line">    SCI_enableFIFO(SCIA_BASE);</span><br><span class="line">    SCI_enableModule(SCIA_BASE);</span><br><span class="line">    SCI_resetChannels(SCIA_BASE);</span><br><span class="line"></span><br><span class="line">    EINT;</span><br><span class="line">    ERTM;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">SendDataToPC</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 发送数据到PC</span></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; BUFFER_SIZE; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 发送高字节</span></span><br><span class="line">        SCI_writeCharBlockingFIFO(SCIA_BASE, (adc_buffer[i] &gt;&gt; <span class="number">8</span>) &amp; <span class="number">0xFF</span>);</span><br><span class="line">        <span class="comment">// 发送低字节</span></span><br><span class="line">        SCI_writeCharBlockingFIFO(SCIA_BASE, adc_buffer[i] &amp; <span class="number">0xFF</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    System_Init();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span>(buffer_full)</span><br><span class="line">        &#123;</span><br><span class="line">            buffer_full = <span class="literal">false</span>;</span><br><span class="line">            SendDataToPC();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<hr>
-<h2 id="学习建议"><a href="#学习建议" class="headerlink" title="学习建议"></a>学习建议</h2><ol>
-<li><strong>循序渐进</strong>: 先掌握基础外设（GPIO、TIMER、UART），再学习高级外设</li>
-<li><strong>实践为主</strong>: 多动手编写代码，运行示例程序</li>
-<li><strong>参考例程</strong>: C2000Ware提供了丰富的示例代码</li>
-<li><strong>使用SysConfig</strong>: 图形化配置可以快速上手</li>
-<li><strong>阅读手册</strong>: Technical Reference Manual是最权威的参考资料</li>
-</ol>
-<hr>
-<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
-<li>TMS320F28004x Technical Reference Manual</li>
-<li>C2000Ware DriverLib API Guide</li>
-<li>C2000Ware Example Code</li>
-<li>TI E2E Forum: <a href="https://e2e.ti.com/">https://e2e.ti.com/</a></li>
-<li>C2000 Academy: 在线培训课程</li>
-</ul>
-<hr>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>通过本系列教程，你已经学习了：</p>
-<ol>
-<li>✓ GPIO配置和使用</li>
-<li>✓ CPU定时器</li>
-<li>✓ UART串口通信</li>
-<li>✓ ePWM输出</li>
-<li>✓ ADC采集</li>
-<li>✓ SPI、I2C、CAN等通信接口</li>
-<li>✓ DMA传输</li>
-<li>✓ 看门狗和Flash操作</li>
-</ol>
-<p>现在你已经具备了开发F280049C应用的基础知识。继续深入学习，结合实际项目，你将能够开发出更复杂的嵌入式系统！</p>
-<p>祝学习顺利！🚀</p>
-]]></content>
-      <categories>
-        <category>嵌入式</category>
-        <category>C2000</category>
-      </categories>
-      <tags>
-        <tag>嵌入式</tag>
-        <tag>C2000</tag>
-        <tag>SPI</tag>
-        <tag>I2C</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>DMA 与进阶外设</title>
     <url>/2025/12/07/07_DMA_Advanced/</url>
     <content><![CDATA[<h1 id="DMA高级应用"><a href="#DMA高级应用" class="headerlink" title="DMA高级应用"></a>DMA高级应用</h1><h2 id="目录"><a href="#目录" class="headerlink" title="目录"></a>目录</h2><ol>
@@ -1098,64 +1098,6 @@
         <tag>嵌入式</tag>
         <tag>C2000</tag>
         <tag>DMA</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>STM32 点亮第一颗 LED</title>
-    <url>/2025/01/01/stm32-led-first-light/</url>
-    <content><![CDATA[<p>这是写给“刚刚把开发板插上电脑”的那一刻。</p>
-<p>很多人接触单片机的第一步，都是让一颗 LED 亮起来。它很简单，甚至简单得有点过分，但就是从这里开始，代码第一次真正碰到硬件，纸上的结构图和手里的板子终于接上了线。</p>
-<h2 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h2><ul>
-<li>一块 STM32 开发板</li>
-<li>一颗 LED</li>
-<li>一个限流电阻</li>
-<li><code>STM32CubeMX</code></li>
-<li><code>Keil</code> 或 <code>STM32CubeIDE</code></li>
-</ul>
-<p>如果你用的是开发板自带 LED，可以连线都省掉，直接查板子的原理图，确认 LED 接在哪个 GPIO 上。</p>
-<h2 id="思路"><a href="#思路" class="headerlink" title="思路"></a>思路</h2><p>点亮 LED 的本质只有三步：</p>
-<ol>
-<li>开启 GPIO 对应端口的时钟</li>
-<li>把引脚配置为推挽输出</li>
-<li>输出高电平或低电平</li>
-</ol>
-<p>如果 LED 是低电平点亮，就输出 <code>0</code>；如果是高电平点亮，就输出 <code>1</code>。这个细节要看板子的硬件连接方式。</p>
-<h2 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h2><p>下面用 HAL 库做一个最小示例。假设 LED 接在 <code>GPIOC</code> 的 <code>PIN13</code>：</p>
-<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;main.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">  HAL_Init();</span><br><span class="line">  __HAL_RCC_GPIOC_CLK_ENABLE();</span><br><span class="line"></span><br><span class="line">  GPIO_InitTypeDef GPIO_InitStruct = &#123;<span class="number">0</span>&#125;;</span><br><span class="line">  GPIO_InitStruct.Pin = GPIO_PIN_13;</span><br><span class="line">  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;</span><br><span class="line">  GPIO_InitStruct.Pull = GPIO_NOPULL;</span><br><span class="line">  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;</span><br><span class="line">  HAL_GPIO_Init(GPIOC, &amp;GPIO_InitStruct);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">while</span> (<span class="number">1</span>)</span><br><span class="line">  &#123;</span><br><span class="line">    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);</span><br><span class="line">    HAL_Delay(<span class="number">500</span>);</span><br><span class="line">    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);</span><br><span class="line">    HAL_Delay(<span class="number">500</span>);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>这段程序会让 LED 以 500ms 的节奏闪烁。</p>
-<h2 id="你真正需要理解的部分"><a href="#你真正需要理解的部分" class="headerlink" title="你真正需要理解的部分"></a>你真正需要理解的部分</h2><p>第一次点灯，不是为了记住某个函数名，而是为了建立几个最基础的概念：</p>
-<ul>
-<li>GPIO 是单片机和外部世界接触的最小接口</li>
-<li>时钟没开，外设就像还没醒</li>
-<li>引脚模式决定它到底是在“听”还是在“说”</li>
-<li>电平变化最终会变成可见的现象</li>
-</ul>
-<p>这些东西以后会反复出现。今天是 LED，明天是按键、串口、PWM、电机控制，其实都还是同一套底层逻辑。</p>
-<h2 id="如果灯没有亮"><a href="#如果灯没有亮" class="headerlink" title="如果灯没有亮"></a>如果灯没有亮</h2><p>可以按这个顺序排查：</p>
-<ol>
-<li>确认 LED 接的引脚是不是你代码里配置的那个引脚</li>
-<li>确认 GPIO 时钟有没有打开</li>
-<li>确认 LED 是高电平点亮还是低电平点亮</li>
-<li>确认限流电阻和接线没有问题</li>
-<li>确认程序已经成功烧录并运行</li>
-</ol>
-<h2 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h2><p>让一颗 LED 亮起来，技术上并不算什么壮举。</p>
-<p>但它通常是很多人第一次意识到：代码并不是停在屏幕里，它真的会把某个沉默的东西点亮。</p>
-<p>More info: <a href="https://hexo.io/docs/server.html">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/generating.html">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>
-]]></content>
-      <categories>
-        <category>嵌入式</category>
-        <category>STM32</category>
-      </categories>
-      <tags>
-        <tag>STM32</tag>
-        <tag>单片机</tag>
-        <tag>LED</tag>
-        <tag>入门</tag>
       </tags>
   </entry>
   <entry>
@@ -1406,6 +1348,64 @@
         <tag>FOC</tag>
         <tag>电机控制</tag>
         <tag>SMO</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>STM32 点亮第一颗 LED</title>
+    <url>/2025/01/01/stm32-led-first-light/</url>
+    <content><![CDATA[<p>这是写给“刚刚把开发板插上电脑”的那一刻。</p>
+<p>很多人接触单片机的第一步，都是让一颗 LED 亮起来。它很简单，甚至简单得有点过分，但就是从这里开始，代码第一次真正碰到硬件，纸上的结构图和手里的板子终于接上了线。</p>
+<h2 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h2><ul>
+<li>一块 STM32 开发板</li>
+<li>一颗 LED</li>
+<li>一个限流电阻</li>
+<li><code>STM32CubeMX</code></li>
+<li><code>Keil</code> 或 <code>STM32CubeIDE</code></li>
+</ul>
+<p>如果你用的是开发板自带 LED，可以连线都省掉，直接查板子的原理图，确认 LED 接在哪个 GPIO 上。</p>
+<h2 id="思路"><a href="#思路" class="headerlink" title="思路"></a>思路</h2><p>点亮 LED 的本质只有三步：</p>
+<ol>
+<li>开启 GPIO 对应端口的时钟</li>
+<li>把引脚配置为推挽输出</li>
+<li>输出高电平或低电平</li>
+</ol>
+<p>如果 LED 是低电平点亮，就输出 <code>0</code>；如果是高电平点亮，就输出 <code>1</code>。这个细节要看板子的硬件连接方式。</p>
+<h2 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h2><p>下面用 HAL 库做一个最小示例。假设 LED 接在 <code>GPIOC</code> 的 <code>PIN13</code>：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;main.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">  HAL_Init();</span><br><span class="line">  __HAL_RCC_GPIOC_CLK_ENABLE();</span><br><span class="line"></span><br><span class="line">  GPIO_InitTypeDef GPIO_InitStruct = &#123;<span class="number">0</span>&#125;;</span><br><span class="line">  GPIO_InitStruct.Pin = GPIO_PIN_13;</span><br><span class="line">  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;</span><br><span class="line">  GPIO_InitStruct.Pull = GPIO_NOPULL;</span><br><span class="line">  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;</span><br><span class="line">  HAL_GPIO_Init(GPIOC, &amp;GPIO_InitStruct);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">while</span> (<span class="number">1</span>)</span><br><span class="line">  &#123;</span><br><span class="line">    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);</span><br><span class="line">    HAL_Delay(<span class="number">500</span>);</span><br><span class="line">    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);</span><br><span class="line">    HAL_Delay(<span class="number">500</span>);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段程序会让 LED 以 500ms 的节奏闪烁。</p>
+<h2 id="你真正需要理解的部分"><a href="#你真正需要理解的部分" class="headerlink" title="你真正需要理解的部分"></a>你真正需要理解的部分</h2><p>第一次点灯，不是为了记住某个函数名，而是为了建立几个最基础的概念：</p>
+<ul>
+<li>GPIO 是单片机和外部世界接触的最小接口</li>
+<li>时钟没开，外设就像还没醒</li>
+<li>引脚模式决定它到底是在“听”还是在“说”</li>
+<li>电平变化最终会变成可见的现象</li>
+</ul>
+<p>这些东西以后会反复出现。今天是 LED，明天是按键、串口、PWM、电机控制，其实都还是同一套底层逻辑。</p>
+<h2 id="如果灯没有亮"><a href="#如果灯没有亮" class="headerlink" title="如果灯没有亮"></a>如果灯没有亮</h2><p>可以按这个顺序排查：</p>
+<ol>
+<li>确认 LED 接的引脚是不是你代码里配置的那个引脚</li>
+<li>确认 GPIO 时钟有没有打开</li>
+<li>确认 LED 是高电平点亮还是低电平点亮</li>
+<li>确认限流电阻和接线没有问题</li>
+<li>确认程序已经成功烧录并运行</li>
+</ol>
+<h2 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h2><p>让一颗 LED 亮起来，技术上并不算什么壮举。</p>
+<p>但它通常是很多人第一次意识到：代码并不是停在屏幕里，它真的会把某个沉默的东西点亮。</p>
+<p>More info: <a href="https://hexo.io/docs/server.html">Server</a></p>
+<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/generating.html">Generating</a></p>
+<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
+<p>More info: <a href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>
+]]></content>
+      <categories>
+        <category>嵌入式</category>
+        <category>STM32</category>
+      </categories>
+      <tags>
+        <tag>STM32</tag>
+        <tag>单片机</tag>
+        <tag>LED</tag>
+        <tag>入门</tag>
       </tags>
   </entry>
   <entry>
@@ -2081,45 +2081,6 @@
       </tags>
   </entry>
   <entry>
-    <title>不相信意义，但我热爱春天</title>
-    <url>/2026/03/15/%E7%A2%8E%E7%A2%8E%E5%BF%B5/%E4%B8%8D%E7%9B%B8%E4%BF%A1%E6%84%8F%E4%B9%89%EF%BC%8C%E4%BD%86%E6%88%91%E7%83%AD%E7%88%B1%E6%98%A5%E5%A4%A9/</url>
-    <content><![CDATA[<p>我越来越不愿意相信那些过于宏大的说法。</p>
-<p>人生意义、终极答案、通往成熟的标准路径，这些词听起来都很完整，却常常离真正的生活太远。真正的生活不是演讲，也不是总结。它更像厨房里一锅刚沸的水，像窗外吹进来的风，像某个下午你忽然想起的一句话，像你明明什么都没弄懂，却还是决定把今天过下去。</p>
-<p>所以我不相信意义。</p>
-<p>但这并不妨碍我热爱春天。</p>
-<p>春天没有证明过任何道理，也没有替谁完成救赎。它只是让树叶重新发亮，让街道有一点温度，让人愿意出门，让失眠的人觉得夜晚没有那么硬。你看，它什么都没解释，却已经足够温柔。</p>
-<p>我也不觉得爱一定要有结论。</p>
-<p>喜欢一个人，有时不过是想替他记住一些很小的事。想在他难过的时候给他煮一碗热腾腾的面，想在他说话时安静地听，想在无话可说的时候，为他写下两三句不打算解释的诗。世界再空一点，这些东西也还是成立。</p>
-<p>水中没有剑，只有一捧月光。田野里没有春天，只有吹过的风。</p>
-<p>如果最后真的没有什么能被称作终极意义，那我希望自己至少还保留着这样的能力：在没有答案的时候继续生活，在风吹来的时候认真感受，在喜欢一个人的时候不急着把爱讲成理论。</p>
-]]></content>
-      <categories>
-        <category>文学角落</category>
-        <category>碎碎念</category>
-      </categories>
-      <tags>
-        <tag>碎碎念</tag>
-        <tag>文学角落</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>春天与电流之间</title>
-    <url>/2026/03/15/%E7%A2%8E%E7%A2%8E%E5%BF%B5/%E6%98%A5%E5%A4%A9%E4%B8%8E%E7%94%B5%E6%B5%81%E4%B9%8B%E9%97%B4/</url>
-    <content><![CDATA[<p>有时候我觉得，人其实并不需要太多宏大的意义。</p>
-<p>把一盏灯修好，把一段程序调通，把晚风从阳台边等到屋里来，这些事情已经足够构成一天。很多时候，真正让人继续活下去的，并不是答案，而是一些很轻的东西，比如水烧开时的声音，比如凌晨两点忽然顺下来的思路，比如春天。</p>
-<p>我越来越愿意相信，生活不是一部等待总结的小说。</p>
-<p>它更像一张写到一半的纸，你在上面涂改、停顿、发呆，偶尔写下两句自己以后也未必懂的话。可即便如此，那张纸还是留下来了。</p>
-]]></content>
-      <categories>
-        <category>文学角落</category>
-        <category>碎碎念</category>
-      </categories>
-      <tags>
-        <tag>碎碎念</tag>
-        <tag>文学角落</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>从四叠半到奇鸟行状录</title>
     <url>/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E4%BB%8E%E5%9B%9B%E5%8F%A0%E5%8D%8A%E5%88%B0%E5%A5%87%E9%B8%9F%E8%A1%8C%E7%8A%B6%E5%BD%95/</url>
     <content><![CDATA[<p>《四叠半神话大系》和《奇鸟行状录》给人的感受并不相同，但它们都带着一种奇异的熟悉感。</p>
@@ -2138,6 +2099,50 @@
       </tags>
   </entry>
   <entry>
+    <title>枯井、发条鸟与无声的抗争</title>
+    <url>/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E6%9E%AF%E4%BA%95%E3%80%81%E5%8F%91%E6%9D%A1%E9%B8%9F%E4%B8%8E%E6%97%A0%E5%A3%B0%E7%9A%84%E6%8A%97%E4%BA%89/</url>
+    <content><![CDATA[<p>《奇鸟行状录》里那口枯井像一个缓慢张开的黑洞。</p>
+<p>它没有立刻给人恐惧，反而先带来一种近乎安静的吸引力。井底没有光，也没有答案，只有一种被剥离之后的空旷。冈田亨坐进井里，不是为了完成某种戏剧化的英雄动作，而像是在进行一场没人看见的修行。他必须先沉下去，沉到社会关系、夫妻生活、日常语言和自我解释都逐渐失效，只剩下一个人和他无法回避的内在。</p>
+<p>我很喜欢这种村上春树式的深处。</p>
+<p>它不是单纯的孤独，也不是故作姿态的颓唐。它更像一种必要的等待。一个人总要在某个时刻停止喧哗，停在世界的齿轮声之外，听那种更迟缓、更隐秘的啮合。那声音不会立刻出现，也不会给你任何承诺，但你知道它正在某个地方发生。</p>
+<p>发条鸟的叫声因此显得重要。</p>
+<p>它像是现实表面的一道裂缝，提醒人还有另一套机制在更深处运转。我们以为生活的推动力来自明确的事件、关系和语言，可真正改变人的，往往是那些看不见的、无声的东西。你只是站在那里，忽然听见远处一声金属般的鸣叫，就知道某些齿轮已经开始缓慢转动。</p>
+<p>所以井不是坠落的象征，而更像通道。</p>
+<p>只有在深处，一个人才可能暂时脱离外界赋予的身份，安静地完成对自己的重新辨认。孤独也因此不是一种状态，而是一门必须完成的功课。你走进去，不是为了躲避世界，而是为了等世界重新和你啮合。</p>
+]]></content>
+      <categories>
+        <category>文学角落</category>
+        <category>书影音</category>
+      </categories>
+      <tags>
+        <tag>书影音</tag>
+        <tag>村上春树</tag>
+        <tag>文学角落</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>马孔多的风：一百年的孤独与循环</title>
+    <url>/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E9%A9%AC%E5%AD%94%E5%A4%9A%E7%9A%84%E9%A3%8E%EF%BC%9A%E4%B8%80%E7%99%BE%E5%B9%B4%E7%9A%84%E5%AD%A4%E7%8B%AC%E4%B8%8E%E5%BE%AA%E7%8E%AF/</url>
+    <content><![CDATA[<p>《百年孤独》真正震撼人的，不只是魔幻，而是那种几乎让人窒息的循环。</p>
+<p>布恩迪亚家族的名字一遍遍重复，性格一遍遍重复，欲望、错误和命运也一遍遍重复。读着读着，你会生出一种奇异的眩晕感，好像所有人都不是在向前活，而是在同一条看不见的圆环上不停兜转。时间并没有真正展开，它只是不断返回。</p>
+<p>马孔多因此不像一个村庄，更像一个封闭宇宙。</p>
+<p>在那个宇宙里，激情、革命、爱情、孤独、野心和死亡都显得异常浓烈，但再浓烈也无法真正改写什么。每个人都带着命运的旧回声出生，像从祖辈的影子里长出来。那些名字在家谱里反复出现的时候，你会突然意识到，人并不总是活在历史之后，很多时候我们只是活在历史里面。</p>
+<p>最让我难过的，是书里那种盛大之后的空无。</p>
+<p>所有传奇都会褪色，所有热闹都会散去，连最顽固的记忆最后也会被风吹得无影无踪。马孔多看起来被故事填得很满，可你越读越会感觉到，一切繁盛都在朝着消失积累。等那场风真正来临时，没有谁能留下痕迹。</p>
+<p>可也正因为如此，这本书才显得近乎真实。</p>
+<p>人类拼命命名、记录、相爱、争斗、繁衍，不就是因为心里知道一切终将被抹平吗。马尔克斯没有安慰谁，他只是把这种循环和消散写得极其盛大。你站在书页尽头，会感觉有一阵风从很远的地方吹过来，把整个世纪都吹得发响。</p>
+]]></content>
+      <categories>
+        <category>文学角落</category>
+        <category>书影音</category>
+      </categories>
+      <tags>
+        <tag>书影音</tag>
+        <tag>文学角落</tag>
+        <tag>马尔克斯</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>四叠半的神话大系：玫瑰色的校园生活只在梦里</title>
     <url>/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E5%9B%9B%E5%8F%A0%E5%8D%8A%E7%9A%84%E7%A5%9E%E8%AF%9D%E5%A4%A7%E7%B3%BB%EF%BC%9A%E7%8E%AB%E7%91%B0%E8%89%B2%E7%9A%84%E6%A0%A1%E5%9B%AD%E7%94%9F%E6%B4%BB%E5%8F%AA%E5%9C%A8%E6%A2%A6%E9%87%8C/</url>
     <content><![CDATA[<p>《四叠半神话大系》最动人的地方，不在于它有多荒诞，而在于那种荒诞几乎贴着现实的皮肤。</p>
@@ -2153,9 +2158,70 @@
         <category>书影音</category>
       </categories>
       <tags>
-        <tag>文学角落</tag>
         <tag>书影音</tag>
         <tag>动画</tag>
+        <tag>文学角落</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>麦田边缘的守望：拒绝每一个伪善的瞬间</title>
+    <url>/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E9%BA%A6%E7%94%B0%E8%BE%B9%E7%BC%98%E7%9A%84%E5%AE%88%E6%9C%9B%EF%BC%9A%E6%8B%92%E7%BB%9D%E6%AF%8F%E4%B8%80%E4%B8%AA%E4%BC%AA%E5%96%84%E7%9A%84%E7%9E%AC%E9%97%B4/</url>
+    <content><![CDATA[<p>第一次读《麦田里的守望者》时，我并不觉得霍尔顿讨喜。</p>
+<p>他刻薄、别扭、反复无常，好像总在否定一切。可读着读着，你会明白那种尖锐并不来自傲慢，而是来自一种太早觉察到世界虚伪性的痛感。他看见太多“假模假式”的人，太多装腔作势的秩序，太多早早学会扮演成熟的成年人，于是他只能用不断的拒绝来保护自己还没完全被磨损的部分。</p>
+<p>我对霍尔顿的共鸣，也许就在这里。</p>
+<p>并不是因为我们真的想反抗整个世界，而是因为有些时刻你会本能地厌恶那种被包装好的圆滑。你知道某些礼貌只是表演，某些成功只是复制，某些热闹并没有真正的温度。人在这种时候，会格外想退到麦田边缘，站在风里，替什么也说不清的东西守一会儿。</p>
+<p>那悬崖边的守望，其实非常徒劳。</p>
+<p>孩子们依旧会长大，纯真依旧会消失，世界并不会因为一个少年的不肯合作就停止变得庸俗。可正因为它毫无胜算，那个愿望才显得格外珍贵。一个人明知道无力改变全部，却仍然想尽力守住一点点不被污染的部分，这本身就已经是一种诚实。</p>
+<p>也许意义从来不在结果里。</p>
+<p>真正重要的是，你是否还愿意在伪善出现的瞬间感到不适，是否还愿意承认自己无法和那种东西和平相处。如果答案是愿意，那你大概仍然没有彻底变成一个无所谓的大人。</p>
+]]></content>
+      <categories>
+        <category>文学角落</category>
+        <category>书影音</category>
+      </categories>
+      <tags>
+        <tag>书影音</tag>
+        <tag>文学角落</tag>
+        <tag>塞林格</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>不相信意义，但我热爱春天</title>
+    <url>/2026/03/15/%E7%A2%8E%E7%A2%8E%E5%BF%B5/%E4%B8%8D%E7%9B%B8%E4%BF%A1%E6%84%8F%E4%B9%89%EF%BC%8C%E4%BD%86%E6%88%91%E7%83%AD%E7%88%B1%E6%98%A5%E5%A4%A9/</url>
+    <content><![CDATA[<p>我越来越不愿意相信那些过于宏大的说法。</p>
+<p>人生意义、终极答案、通往成熟的标准路径，这些词听起来都很完整，却常常离真正的生活太远。真正的生活不是演讲，也不是总结。它更像厨房里一锅刚沸的水，像窗外吹进来的风，像某个下午你忽然想起的一句话，像你明明什么都没弄懂，却还是决定把今天过下去。</p>
+<p>所以我不相信意义。</p>
+<p>但这并不妨碍我热爱春天。</p>
+<p>春天没有证明过任何道理，也没有替谁完成救赎。它只是让树叶重新发亮，让街道有一点温度，让人愿意出门，让失眠的人觉得夜晚没有那么硬。你看，它什么都没解释，却已经足够温柔。</p>
+<p>我也不觉得爱一定要有结论。</p>
+<p>喜欢一个人，有时不过是想替他记住一些很小的事。想在他难过的时候给他煮一碗热腾腾的面，想在他说话时安静地听，想在无话可说的时候，为他写下两三句不打算解释的诗。世界再空一点，这些东西也还是成立。</p>
+<p>水中没有剑，只有一捧月光。田野里没有春天，只有吹过的风。</p>
+<p>如果最后真的没有什么能被称作终极意义，那我希望自己至少还保留着这样的能力：在没有答案的时候继续生活，在风吹来的时候认真感受，在喜欢一个人的时候不急着把爱讲成理论。</p>
+]]></content>
+      <categories>
+        <category>文学角落</category>
+        <category>碎碎念</category>
+      </categories>
+      <tags>
+        <tag>文学角落</tag>
+        <tag>碎碎念</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>春天与电流之间</title>
+    <url>/2026/03/15/%E7%A2%8E%E7%A2%8E%E5%BF%B5/%E6%98%A5%E5%A4%A9%E4%B8%8E%E7%94%B5%E6%B5%81%E4%B9%8B%E9%97%B4/</url>
+    <content><![CDATA[<p>有时候我觉得，人其实并不需要太多宏大的意义。</p>
+<p>把一盏灯修好，把一段程序调通，把晚风从阳台边等到屋里来，这些事情已经足够构成一天。很多时候，真正让人继续活下去的，并不是答案，而是一些很轻的东西，比如水烧开时的声音，比如凌晨两点忽然顺下来的思路，比如春天。</p>
+<p>我越来越愿意相信，生活不是一部等待总结的小说。</p>
+<p>它更像一张写到一半的纸，你在上面涂改、停顿、发呆，偶尔写下两句自己以后也未必懂的话。可即便如此，那张纸还是留下来了。</p>
+]]></content>
+      <categories>
+        <category>文学角落</category>
+        <category>碎碎念</category>
+      </categories>
+      <tags>
+        <tag>文学角落</tag>
+        <tag>碎碎念</tag>
       </tags>
   </entry>
   <entry>
@@ -2599,72 +2665,6 @@
         <tag>电机控制</tag>
         <tag>ESP32</tag>
         <tag>滑模观测器</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>枯井、发条鸟与无声的抗争</title>
-    <url>/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E6%9E%AF%E4%BA%95%E3%80%81%E5%8F%91%E6%9D%A1%E9%B8%9F%E4%B8%8E%E6%97%A0%E5%A3%B0%E7%9A%84%E6%8A%97%E4%BA%89/</url>
-    <content><![CDATA[<p>《奇鸟行状录》里那口枯井像一个缓慢张开的黑洞。</p>
-<p>它没有立刻给人恐惧，反而先带来一种近乎安静的吸引力。井底没有光，也没有答案，只有一种被剥离之后的空旷。冈田亨坐进井里，不是为了完成某种戏剧化的英雄动作，而像是在进行一场没人看见的修行。他必须先沉下去，沉到社会关系、夫妻生活、日常语言和自我解释都逐渐失效，只剩下一个人和他无法回避的内在。</p>
-<p>我很喜欢这种村上春树式的深处。</p>
-<p>它不是单纯的孤独，也不是故作姿态的颓唐。它更像一种必要的等待。一个人总要在某个时刻停止喧哗，停在世界的齿轮声之外，听那种更迟缓、更隐秘的啮合。那声音不会立刻出现，也不会给你任何承诺，但你知道它正在某个地方发生。</p>
-<p>发条鸟的叫声因此显得重要。</p>
-<p>它像是现实表面的一道裂缝，提醒人还有另一套机制在更深处运转。我们以为生活的推动力来自明确的事件、关系和语言，可真正改变人的，往往是那些看不见的、无声的东西。你只是站在那里，忽然听见远处一声金属般的鸣叫，就知道某些齿轮已经开始缓慢转动。</p>
-<p>所以井不是坠落的象征，而更像通道。</p>
-<p>只有在深处，一个人才可能暂时脱离外界赋予的身份，安静地完成对自己的重新辨认。孤独也因此不是一种状态，而是一门必须完成的功课。你走进去，不是为了躲避世界，而是为了等世界重新和你啮合。</p>
-]]></content>
-      <categories>
-        <category>文学角落</category>
-        <category>书影音</category>
-      </categories>
-      <tags>
-        <tag>文学角落</tag>
-        <tag>书影音</tag>
-        <tag>村上春树</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>马孔多的风：一百年的孤独与循环</title>
-    <url>/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E9%A9%AC%E5%AD%94%E5%A4%9A%E7%9A%84%E9%A3%8E%EF%BC%9A%E4%B8%80%E7%99%BE%E5%B9%B4%E7%9A%84%E5%AD%A4%E7%8B%AC%E4%B8%8E%E5%BE%AA%E7%8E%AF/</url>
-    <content><![CDATA[<p>《百年孤独》真正震撼人的，不只是魔幻，而是那种几乎让人窒息的循环。</p>
-<p>布恩迪亚家族的名字一遍遍重复，性格一遍遍重复，欲望、错误和命运也一遍遍重复。读着读着，你会生出一种奇异的眩晕感，好像所有人都不是在向前活，而是在同一条看不见的圆环上不停兜转。时间并没有真正展开，它只是不断返回。</p>
-<p>马孔多因此不像一个村庄，更像一个封闭宇宙。</p>
-<p>在那个宇宙里，激情、革命、爱情、孤独、野心和死亡都显得异常浓烈，但再浓烈也无法真正改写什么。每个人都带着命运的旧回声出生，像从祖辈的影子里长出来。那些名字在家谱里反复出现的时候，你会突然意识到，人并不总是活在历史之后，很多时候我们只是活在历史里面。</p>
-<p>最让我难过的，是书里那种盛大之后的空无。</p>
-<p>所有传奇都会褪色，所有热闹都会散去，连最顽固的记忆最后也会被风吹得无影无踪。马孔多看起来被故事填得很满，可你越读越会感觉到，一切繁盛都在朝着消失积累。等那场风真正来临时，没有谁能留下痕迹。</p>
-<p>可也正因为如此，这本书才显得近乎真实。</p>
-<p>人类拼命命名、记录、相爱、争斗、繁衍，不就是因为心里知道一切终将被抹平吗。马尔克斯没有安慰谁，他只是把这种循环和消散写得极其盛大。你站在书页尽头，会感觉有一阵风从很远的地方吹过来，把整个世纪都吹得发响。</p>
-]]></content>
-      <categories>
-        <category>文学角落</category>
-        <category>书影音</category>
-      </categories>
-      <tags>
-        <tag>文学角落</tag>
-        <tag>书影音</tag>
-        <tag>马尔克斯</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>麦田边缘的守望：拒绝每一个伪善的瞬间</title>
-    <url>/2026/03/15/%E4%B9%A6%E5%BD%B1%E9%9F%B3/%E9%BA%A6%E7%94%B0%E8%BE%B9%E7%BC%98%E7%9A%84%E5%AE%88%E6%9C%9B%EF%BC%9A%E6%8B%92%E7%BB%9D%E6%AF%8F%E4%B8%80%E4%B8%AA%E4%BC%AA%E5%96%84%E7%9A%84%E7%9E%AC%E9%97%B4/</url>
-    <content><![CDATA[<p>第一次读《麦田里的守望者》时，我并不觉得霍尔顿讨喜。</p>
-<p>他刻薄、别扭、反复无常，好像总在否定一切。可读着读着，你会明白那种尖锐并不来自傲慢，而是来自一种太早觉察到世界虚伪性的痛感。他看见太多“假模假式”的人，太多装腔作势的秩序，太多早早学会扮演成熟的成年人，于是他只能用不断的拒绝来保护自己还没完全被磨损的部分。</p>
-<p>我对霍尔顿的共鸣，也许就在这里。</p>
-<p>并不是因为我们真的想反抗整个世界，而是因为有些时刻你会本能地厌恶那种被包装好的圆滑。你知道某些礼貌只是表演，某些成功只是复制，某些热闹并没有真正的温度。人在这种时候，会格外想退到麦田边缘，站在风里，替什么也说不清的东西守一会儿。</p>
-<p>那悬崖边的守望，其实非常徒劳。</p>
-<p>孩子们依旧会长大，纯真依旧会消失，世界并不会因为一个少年的不肯合作就停止变得庸俗。可正因为它毫无胜算，那个愿望才显得格外珍贵。一个人明知道无力改变全部，却仍然想尽力守住一点点不被污染的部分，这本身就已经是一种诚实。</p>
-<p>也许意义从来不在结果里。</p>
-<p>真正重要的是，你是否还愿意在伪善出现的瞬间感到不适，是否还愿意承认自己无法和那种东西和平相处。如果答案是愿意，那你大概仍然没有彻底变成一个无所谓的大人。</p>
-]]></content>
-      <categories>
-        <category>文学角落</category>
-        <category>书影音</category>
-      </categories>
-      <tags>
-        <tag>文学角落</tag>
-        <tag>书影音</tag>
-        <tag>塞林格</tag>
       </tags>
   </entry>
 </search>
